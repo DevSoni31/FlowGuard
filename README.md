@@ -4,9 +4,10 @@
 
 FlowGuard is a Lean 4 formalization of a fundamental and underappreciated problem in AI
 safety: *an AI pipeline can be dangerous even when every agent inside it is individually
-safe.* We prove this in three independent layers — capability hypergraphs, information-flow
-control, and a free monad model of agent programs — and unify them into a single
-compile-time safety certificate.
+safe.* We prove this in five independent layers — capability hypergraphs, information-flow
+control, a free monad model of agent programs, a unified safety certificate, and
+a bridge to Cedar, Amazon's production authorization language — and unify them into
+a single compile-time safety certificate.
 
 > Built for the **LeanLang for Verified Autonomy Hackathon 2026** at IISc Bangalore in collaboration with Emergence AI Labs India.
 
@@ -57,26 +58,30 @@ The project is structured in four layers, each building on the last.
 ## Architecture
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│ FlowCheck.lean │
-│ ValidPipeline — the unified safety certificate │
-│ Requires BOTH Layer 1 and Layer 2 to be satisfied │
-└────────────────────────┬──────────────────┬─────────────────┘
-│ │
-┌──────────────▼──────┐ ┌────────▼──────────────┐
-│ CapHypergraph.lean │ │ InfoFlow.lean │
-│ Layer 1: Capability │ │ Layer 2: Information │
-│ Emergence via │ │ Flow Control and │
-│ Hyperedge Closure │ │ Transitive Safety │
-└──────────────┬───────┘ └────────┬──────────────┘
-│ │
-└─────────┬─────────┘
-│
-┌──────────────▼──────────────┐
-│ AgentProgram.lean │
-│ Layer 3: Free Monad Model │
-│ Programs as proof objects │
-└──────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  CedarBridge.lean                                            │
+│  Layer 5: Cedar incompleteness — uses Layers 1, 2, and 4    │
+└────────────────────────────┬─────────────────────────────────┘
+                             │
+         ┌───────────────────▼─────────────────────┐
+         │  FlowCheck.lean                          │
+         │  Layer 4: ValidPipeline unified cert.    │
+         └──────────┬──────────────────┬────────────┘
+                    │                  │
+     ┌──────────────▼──────┐  ┌────────▼──────────────┐
+     │  CapHypergraph.lean │  │  InfoFlow.lean         │
+     │  Layer 1: Capability│  │  Layer 2: Information  │
+     │  Emergence via      │  │  Flow Control and      │
+     │  Hyperedge Closure  │  │  Transitive Safety     │
+     └──────────┬──────────┘  └────────┬───────────────┘
+                │                      │
+                └──────────┬───────────┘
+                           │
+              ┌────────────▼──────────────┐
+              │  AgentProgram.lean         │
+              │  Layer 3: Free Monad Model │
+              │  Programs as proof objects │
+              └────────────────────────────┘
 ```
 
 
@@ -194,6 +199,34 @@ Safety becomes a **compile-time guarantee**, not a runtime check.
 
 ---
 
+## Layer 5 — Cedar Policy Bridge (`CedarBridge.lean`)
+
+**The idea:** Cedar is Amazon's production authorization language — formally verified,
+used in AWS, and the current state of the art in deployed AI access control. Cedar
+evaluates requests of the form (principal, action, resource) against a policy set and
+returns Allow or Deny.
+
+Cedar is *sound*: it correctly enforces what it is designed to enforce.
+FlowGuard proves Cedar is *incomplete* for multi-agent pipelines: it has no concept
+of capability emergence via hyperedge closure, and no concept of transitive information
+flow across channels. These are structural gaps in Cedar's threat model, not bugs in
+its implementation.
+
+**Key theorems:**
+
+| Theorem | Plain English |
+|---|---|
+| `webPolicy_allows_webSearch` | Cedar correctly allows the web-search agent's permitted action |
+| `webPolicy_denies_exfil` | Cedar correctly denies direct exfiltration per-agent |
+| `teamPolicy_denies_direct_exfil` | Cedar's combined team policy denies exfil for every individual request |
+| `cedar_nonCompositionality_gap` | **Gap 1:** Cedar approves both agents; FlowGuard proves the composed team holds exfil via emergence |
+| `cedar_ifc_gap` | **Gap 2:** Cedar approves every hop in the medical pipeline; FlowGuard proves the transitive flow is unsafe |
+| `cedar_is_incomplete` | **Master result:** Cedar is sound but incomplete — both gaps machine-checked simultaneously |
+
+**Formalises:** Diebert, J. et al. (2022). *Cedar: A new language for expressive, fast,
+safe, and analyzable authorization.* Amazon Science; Clarkson & Schneider (2010).
+*Hyperproperties.*
+
 ## Why This Matters
 
 Current AI safety tools — guardrails, red-teaming, constitutional AI — almost universally
@@ -262,6 +295,9 @@ FlowGuard/
 5. de Moura, L., & Ullrich, S. (2021). *The Lean 4 theorem prover and programming language.*
    CADE 2021.
 
+6. Diebert, J., Cutler, C., Eiber, M., Headley, M., Hull, B., Jimenez, K., & others. (2022).
+   *Cedar: A new language for expressive, fast, safe, and analyzable authorization.*
+   [Amazon Science](https://www.amazon.science/publications/cedar-a-new-language-for-expressive-fast-safe-and-analyzable-authorization)
 ---
 
 ## Acknowledgements
