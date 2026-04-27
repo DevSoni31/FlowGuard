@@ -8,8 +8,7 @@ safe.* We prove this in three independent layers — capability hypergraphs, inf
 control, and a free monad model of agent programs — and unify them into a single
 compile-time safety certificate.
 
-> Built for the **LeanLangur Hackathon 2025** at IISc Bangalore,
-> supervised by [Prof. Siddhartha Gadgil](https://math.iisc.ac.in/~gadgil/).
+> Built for the **LeanLang for Verified Autonomy Hackathon 2026** at IISc Bangalore in collaboration with Emergence AI Labs India.
 
 ---
 
@@ -267,12 +266,11 @@ FlowGuard/
 
 ## Acknowledgements
 
-This project was developed during the **LeanLangur Hackathon** organised by
-Prof. Siddhartha Gadgil at the Indian Institute of Science, Bangalore.
+This project was developed during the **LeanLang for Verified Autonomy Hackathon 2026** at IISc Bangalore organised by Emergence AI Labs India in collaboration with IISc Bangalore under the supervision of Prof. Siddhartha Gadgil.
 The architecture of `AgentProgram.lean` is directly inspired by `FileM.lean` in
 [LeanLangur](https://github.com/siddhartha-gadgil/LeanLangur).
 
 ---
 
-*"The question is not whether individual AI agents are safe.
-The question is whether their composition is."*
+"The question is not whether individual AI agents are safe.
+The question is whether their composition is."
