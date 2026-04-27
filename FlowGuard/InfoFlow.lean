@@ -169,4 +169,50 @@ theorem safePipelineIFC_fullyVerified :
     isTransitivelySafe safePipelineIFC = true := by
   decide
 
+/-! ## Local approval is not transitive through the security lattice
+
+    A fundamental theorem about why pairwise channel checking is insufficient.
+
+    The medical pipeline shows:
+      · High → Medium is locally approved  (clinical summarisation)
+      · Medium → Low  is locally approved  (anonymisation)
+      · Yet High → Low violates the global security lattice
+
+    This is NOT the same as saying secureFlow is non-transitive
+    (secureFlow is in fact transitive — it is a partial order).
+    What fails is LOCAL APPROVAL: local policies are too permissive,
+    and their composition creates a global violation that neither
+    local policy could see individually.
+-/
+
+/-- Local approval does not imply global security:
+    there exist labels a, b, c such that both hops are locally approved
+    yet the end-to-end flow violates the security lattice. -/
+theorem localApproval_not_transitive :
+    ∃ (a b c : DataLabel),
+      locallyApproved a b = true ∧
+      locallyApproved b c = true ∧
+      secureFlow a c = false :=
+  ⟨DataLabel.high, DataLabel.medium, DataLabel.low,
+   by decide, by decide, by decide⟩
+
+/-- Corollary: the medical pipeline is the canonical witness.
+    Both channels pass local approval; the composed flow fails globally. -/
+theorem medicalPipeline_is_witness :
+    locallyApproved diagnosticChannel.src diagnosticChannel.dst = true ∧
+    locallyApproved summaryChannel.src summaryChannel.dst = true ∧
+    secureFlow diagnosticChannel.src summaryChannel.dst = false :=
+  ⟨by decide, by decide, by decide⟩
+
+/-- Global security (secureFlow) IS transitive — this is a sanity check
+    confirming that our lattice is well-formed. The problem is not with
+    the lattice but with over-permissive local policies. -/
+theorem secureFlow_transitive :
+    ∀ (a b c : DataLabel),
+      secureFlow a b = true →
+      secureFlow b c = true →
+      secureFlow a c = true := by
+  intro a b c hab hbc
+  cases a <;> cases b <;> cases c <;> simp_all [secureFlow]
+
 end FlowGuard
