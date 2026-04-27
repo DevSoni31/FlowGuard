@@ -33,6 +33,73 @@ def closureAux : Nat → List HyperEdge → Finset Cap → Finset Cap
 def capClosure (edges : List HyperEdge) (S : Finset Cap) : Finset Cap :=
   closureAux (Fintype.card Cap) edges S
 
+/-! ## Monotonicity of the closure operator -/
+
+/-- A single foldl step preserves any superset relationship. -/
+private theorem foldl_step_mono (edges : List HyperEdge) (S T : Finset Cap)
+    (h : S ⊆ T) :
+    let f := fun (acc : Finset Cap) (e : HyperEdge) =>
+      if e.premises ⊆ acc then insert e.conclusion acc else acc
+    List.foldl f S edges ⊆ List.foldl f T edges := by
+  induction edges generalizing S T with
+  | nil => simpa
+  | cons e rest ih =>
+    simp only [List.foldl_cons]
+    by_cases hS : e.premises ⊆ S
+    · have hT : e.premises ⊆ T := hS.trans h
+      simp only [hS, hT, ite_true]
+      exact ih _ _ (Finset.insert_subset_insert _ h)
+    · by_cases hT : e.premises ⊆ T
+      · simp only [hS, hT, ite_true, ite_false]
+        apply ih
+        exact h.trans (Finset.subset_insert e.conclusion T)
+      · simp only [hS, hT, ite_false]
+        exact ih _ _ h
+
+/-- `step` is monotone: S ⊆ T → step edges S ⊆ step edges T -/
+theorem step_mono (edges : List HyperEdge) {S T : Finset Cap} (h : S ⊆ T) :
+    step edges S ⊆ step edges T := by
+  unfold step
+  exact foldl_step_mono edges S T h
+
+/-- `step` is extensive: S ⊆ step edges S -/
+private theorem step_extensive (edges : List HyperEdge) (S : Finset Cap) :
+    S ⊆ step edges S := by
+  unfold step
+  induction edges generalizing S with
+  | nil => simp
+  | cons e rest ih =>
+    simp only [List.foldl_cons]
+    by_cases h : e.premises ⊆ S
+    · simp only [h, ite_true]
+      exact (ih S).trans (foldl_step_mono rest S (insert e.conclusion S)
+        (Finset.subset_insert e.conclusion S))
+    · simp only [h, ite_false]
+      exact ih S
+
+/-- `closureAux` is monotone in its Finset argument. -/
+theorem closureAux_mono (n : Nat) (edges : List HyperEdge) {S T : Finset Cap}
+    (h : S ⊆ T) : closureAux n edges S ⊆ closureAux n edges T := by
+  induction n generalizing S T with
+  | zero => simpa [closureAux]
+  | succ n ih => exact ih (step_mono edges h)
+
+/-- The closure operator is monotone:
+    a larger base set always yields a larger emergent set. -/
+theorem capClosure_mono (edges : List HyperEdge) {S T : Finset Cap} (h : S ⊆ T) :
+    capClosure edges S ⊆ capClosure edges T :=
+  closureAux_mono _ edges h
+
+/-- The closure is extensive: every base capability survives into the closure. -/
+theorem capClosure_extensive (edges : List HyperEdge) (S : Finset Cap) :
+    S ⊆ capClosure edges S := by
+  unfold capClosure
+  induction (Fintype.card Cap) generalizing S with
+  | zero => simp [closureAux]
+  | succ n ih =>
+    simp only [closureAux]
+    exact (step_extensive edges S).trans (ih (step edges S))
+
 /-! ## Agents -/
 
 structure Agent where
@@ -89,5 +156,19 @@ theorem nonCompositionalityCounterexample :
     isCapSafe demoEdges execAgent = true ∧
     isCapSafe demoEdges (compose webAgent execAgent) = false := by
   decide
+
+/-! ## Universal non-compositionality -/
+
+/-- There *exist* agents and hyperedges such that individual safety
+    does not imply compositional safety.
+    This upgrades our counterexample from a verified instance to an
+    existential theorem — the correct research-paper-level statement. -/
+theorem nonCompositionality_exists :
+    ∃ (edges : List HyperEdge) (a b : Agent),
+      isCapSafe edges a = true ∧
+      isCapSafe edges b = true ∧
+      isCapSafe edges (compose a b) = false :=
+  ⟨demoEdges, webAgent, execAgent,
+   webAgent_is_safe, execAgent_is_safe, composedTeam_is_unsafe⟩
 
 end FlowGuard
