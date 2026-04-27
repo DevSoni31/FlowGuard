@@ -100,6 +100,9 @@ The result is the *emergent capability set* of the pipeline.
 | `execAgent_is_safe` | The code-execution agent alone cannot exfiltrate data |
 | `composedTeam_is_unsafe` | Together, they can — the `exfilData` capability emerges |
 | `nonCompositionalityCounterexample` | **Headline:** both safe individually, unsafe together |
+| `capClosure_mono` | **General law:** adding capabilities can only expand the emergent set, never shrink it |
+| `capClosure_extensive` | Every base capability survives into the closure — nothing is lost |
+| `nonCompositionality_exists` | **Universal theorem:** there *exist* agents and edges where individual safety fails to compose |
 
 **Formalises:** Spera, M. (2026). *Hypergraph-based capability modelling for AI agent
 safety.* arXiv:2603.15973
@@ -129,6 +132,9 @@ Each individual hop was approved. The system as a whole violates noninterference
 | `medicalPipeline_allLocallyApproved` | Every hop passes its own policy check |
 | `medicalPipeline_globallyUnsafe` | The transitive flow H→L violates noninterference |
 | `nonInterference_nonCompositional` | **Headline:** local approval ≠ global security |
+| `localApproval_not_transitive` | **Universal theorem:** there *exist* labels where local approval fails to compose |
+| `medicalPipeline_is_witness` | The medical pipeline is the canonical named witness |
+| `secureFlow_transitive` | **Sanity check:** the global lattice IS transitive — the flaw is in local policy, not the lattice |
 | `safePipelineIFC_fullyVerified` | A genuinely safe pipeline (Low→High) is certified |
 
 **Formalises:** Anon. (2025). *Compositional information-flow security for LLM pipelines.*
@@ -229,21 +235,15 @@ lake build
 
 All proofs are in `FlowGuard/`. There are no `sorry`s — every theorem is fully proved.
 
----
-
-## File Structure
-
 ```text
 FlowGuard/
-├── CapHypergraph.lean # Layer 1: capability hypergraph closure + counterexample
-├── InfoFlow.lean # Layer 2: security labels, IFC, cascaded declassification
-├── AgentProgram.lean # Layer 3: free monad model of agent programs
-├── FlowCheck.lean # Layer 4: ValidPipeline unified certificate
-└── Basic.lean # Module entry point
+├── CapHypergraph.lean  # Layer 1: capability hypergraph closure, monotonicity, counterexample
+├── InfoFlow.lean       # Layer 2: security labels, IFC, cascaded declassification, lattice sanity
+├── AgentProgram.lean   # Layer 3: free monad model of agent programs
+├── FlowCheck.lean      # Layer 4: ValidPipeline unified certificate
+├── CedarBridge.lean    # Layer 5: Cedar policy language bridge and incompleteness theorem
+└── Basic.lean          # Module entry point
 ```
-
-
----
 
 ## References
 
@@ -272,5 +272,5 @@ The architecture of `AgentProgram.lean` is directly inspired by `FileM.lean` in
 
 ---
 
-"The question is not whether individual AI agents are safe.
-The question is whether their composition is."
+> "The question is not whether individual AI agents are safe.
+> The question is whether their composition is."
