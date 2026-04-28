@@ -283,17 +283,17 @@ FlowGuard/
 1. Spera, M. (2026). *Hypergraph-based capability modelling for multi-agent AI safety.*
    [arXiv:2603.15973](https://arxiv.org/abs/2603.15973)
 
-2. Anon. (2025). *Compositional information-flow security for LLM agent pipelines.*
+2. Costa, et al. (2025). *Compositional information-flow security for LLM agent pipelines.*
    [arXiv:2505.23643](https://arxiv.org/abs/2505.23643)
 
 3. Clarkson, M. R., & Schneider, F. B. (2010). *Hyperproperties.*
-   Journal of Computer Security, 18(6), 1157–1210.
+   [Journal of Computer Security, 18(6), 1157–1210](https://ecommons.cornell.edu/bitstream/1813/11660/4/hyperproperties-tr.pdf)
 
 4. Gadgil, S. (2025). *LeanLangur — Language and formal verification experiments.*
    [github.com/siddhartha-gadgil/LeanLangur](https://github.com/siddhartha-gadgil/LeanLangur)
 
 5. de Moura, L., & Ullrich, S. (2021). *The Lean 4 theorem prover and programming language.*
-   CADE 2021.
+   [CADE 2021](https://lean-lang.org/papers/lean4.pdf)
 
 6. Diebert, J., Cutler, C., Eiber, M., Headley, M., Hull, B., Jimenez, K., & others. (2022).
    *Cedar: A new language for expressive, fast, safe, and analyzable authorization.*

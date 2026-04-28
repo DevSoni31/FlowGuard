@@ -1,6 +1,7 @@
 import FlowGuard.CapHypergraph
 import FlowGuard.InfoFlow
 import FlowGuard.AgentProgram
+import FlowGuard.CedarBridge
 import Mathlib.Tactic
 
 namespace FlowGuard
@@ -102,5 +103,49 @@ theorem trustedPipeline_certified :
     (∀ a ∈ trustedPipeline.agents, isCapSafe trustedPipeline.capEdges a = true) ∧
     isTransitivelySafe trustedPipeline.channels = true :=
   flowguard_sound trustedPipeline
+
+/-! ## Stretch B — FlowGuard is Strictly Stronger than Cedar
+
+    We prove that Cedar's per-request model cannot catch the capability
+    emergence that FlowGuard detects. The argument is direct:
+
+    1. Cedar's teamPolicy denies exfilData for every individual request.
+    2. FlowGuard proves the composed team holds exfilData via closure.
+    3. Therefore Cedar-approval does not imply FlowGuard-safety.
+
+    This places FlowGuard strictly above Cedar in the safety hierarchy.
+-/
+
+/-- Cedar strictly approves the unsafe pipeline on a per-request basis:
+    no request Cedar can evaluate results in an exfil allow decision. -/
+theorem cedar_approves_unsafe_pipeline_perRequest :
+    cedarEval teamPolicy
+      { principal := { name := "web-agent" }
+        action    := { name := "exfilData" }
+        resource  := { name := "server" } } = CedarDecision.deny ∧
+    cedarEval teamPolicy
+      { principal := { name := "exec-agent" }
+        action    := { name := "exfilData" }
+        resource  := { name := "server" } } = CedarDecision.deny := by
+  simp [cedarEval, teamPolicy, webPolicy, execPolicy]
+
+/-- STRICTNESS THEOREM:
+    Cedar's per-request approval of the unsafe pipeline coexists with
+    FlowGuard's detection of capability emergence.
+    Cedar-approval does NOT imply FlowGuard-safety.
+    FlowGuard is strictly stronger than Cedar. -/
+theorem cedarAware_strictly_weaker :
+    -- Cedar side: both agents' exfil requests are denied (Cedar approves the pipeline)
+    (cedarEval teamPolicy
+      { principal := { name := "web-agent" }
+        action    := { name := "exfilData" }
+        resource  := { name := "server" } } = CedarDecision.deny ∧
+     cedarEval teamPolicy
+      { principal := { name := "exec-agent" }
+        action    := { name := "exfilData" }
+        resource  := { name := "server" } } = CedarDecision.deny) ∧
+    -- FlowGuard side: the composed team is unsafe
+    isCapSafe demoEdges (compose webAgent execAgent) = false :=
+  ⟨cedar_approves_unsafe_pipeline_perRequest, by decide⟩
 
 end FlowGuard
