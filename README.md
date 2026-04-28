@@ -9,8 +9,6 @@ control, a free monad model of agent programs, a unified safety certificate, and
 a bridge to Cedar, Amazon's production authorization language — and unify them into
 a single compile-time safety certificate.
 
-> Built for the **LeanLang for Verified Autonomy Hackathon 2026** at IISc Bangalore in collaboration with Emergence AI Labs India.
-
 ---
 
 ## The Problem — Explained Without Lean
@@ -41,6 +39,14 @@ This property — that safety is **not preserved under composition** — is form
 machine-checked, compiler-verified proof of it in the context of AI agent systems.
 
 **FlowGuard provides those proofs.**
+
+---
+
+## Origin
+
+This project was built during the **LeanLang for Verified Autonomy Hackathon** (April 17–18 + online through May 1, 2026) at the **Indian Institute of Science (IISc), Bangalore**.
+Sponsored by Emergence AI.
+Organized by **[Emergence India Labs](https://east.emergence.ai)** in collaboration with IISc Bangalore.
 
 ---
 
@@ -302,11 +308,18 @@ FlowGuard/
 
 ## Acknowledgements
 
-This project was developed during the **LeanLang for Verified Autonomy Hackathon 2026** at IISc Bangalore organised by Emergence AI Labs India in collaboration with IISc Bangalore under the supervision of Prof. Siddhartha Gadgil.
-The architecture of `AgentProgram.lean` is directly inspired by `FileM.lean` in
-[LeanLangur](https://github.com/siddhartha-gadgil/LeanLangur).
+This project was made possible by:
+Emergence AI — Hackathon sponsor
+Emergence India Labs — Event organizer and research direction
+Indian Institute of Science (IISc), Bangalore — Academic partner, hackathon co-design, tutorials, and mentorship
 
 ---
+
+## Links
+
+[Hackathon Page](https://east.emergence.ai/hackathon-april2026.html)
+[Emergence India Labs](https://east.emergence.ai/)
+[Emergence AI](https://www.emergence.ai/)
 
 > "The question is not whether individual AI agents are safe.
 > The question is whether their composition is."

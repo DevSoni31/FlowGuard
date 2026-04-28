@@ -309,4 +309,48 @@ theorem policy_union_cannot_close_gap :
     isCapSafe demoEdges (compose webAgent execAgent) = false :=
   ⟨unionPolicy_denies_exfil, by decide⟩
 
+/-! ## Stretch C — The `decideCedarGap` Tactic
+
+    A custom tactic macro that automatically discharges Cedar gap goals.
+    A Cedar gap goal has the form:
+      · Cedar side: cedarEval ... = CedarDecision.deny  (Cedar approves per-request)
+      · FlowGuard side: isCapSafe ... = false            (FlowGuard detects emergence)
+
+    Usage:
+      theorem my_gap : <cedar clause> ∧ <flowguard clause> := by decideCedarGap
+
+    The macro expands to: refine ⟨?_, ?_⟩ <;> first | simp [cedarEval, ...] | decide
+-/
+
+/-- `decideCedarGap` discharges Cedar incompleteness goals automatically.
+    Works for any goal that is a conjunction of Cedar-denial and FlowGuard-unsafe. -/
+macro "decideCedarGap" : tactic =>
+  `(tactic| (
+    first
+    | (refine ⟨?_, ?_⟩ <;>
+       first | simp [cedarEval, webPolicy, execPolicy, teamPolicy, medicalPolicy,
+                     unionPolicy] | decide)
+    | (refine ⟨?_, ?_, ?_⟩ <;>
+       first | simp [cedarEval, webPolicy, execPolicy, teamPolicy, medicalPolicy,
+                     unionPolicy] | decide)
+    | decide
+  ))
+
+/-! ### Demonstration: existing theorems re-proved in one line -/
+
+/-- `policy_union_cannot_close_gap` re-proved using the tactic -/
+theorem policy_union_gap_via_tactic :
+    cedarEval (unionPolicy [webPolicy, execPolicy])
+      { principal := { name := "web-agent" }
+        action    := { name := "exfilData" }
+        resource  := { name := "server" } } = CedarDecision.deny ∧
+    isCapSafe demoEdges (compose webAgent execAgent) = false := by
+  decideCedarGap
+
+/-- `cedar_is_incomplete` re-proved using the tactic -/
+theorem cedar_incomplete_via_tactic :
+    isCapSafe demoEdges (compose webAgent execAgent) = false ∧
+    isTransitivelySafe medicalPipeline = false := by
+  decideCedarGap
+
 end FlowGuard
