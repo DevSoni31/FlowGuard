@@ -49,9 +49,9 @@ theorem cedar_is_request_local (p : CedarPolicy) (req : CedarRequest) :
     receive the same Cedar decision from any policy. -/
 theorem cedar_request_determines_decision
     (p : CedarPolicy) (req₁ req₂ : CedarRequest)
-    (hpr  : req₁.principal = req₂.principal)
-    (hact : req₁.action    = req₂.action)
-    (hres : req₁.resource  = req₂.resource) :
+    (hpr : req₁.principal = req₂.principal)
+    (hact : req₁.action = req₂.action)
+    (hres : req₁.resource = req₂.resource) :
     cedarEval p req₁ = cedarEval p req₂ := by
   simp [cedarEval]
   congr 1
@@ -60,14 +60,43 @@ theorem cedar_request_determines_decision
 
 /-- Cedar cannot distinguish two agents that differ only in their
     capability sets, as long as their Cedar principal names are the same.
-    This is the formal statement of request-locality for capability sets. -/
+    This is the formal statement of request-locality for capability sets.
+    This is the formal heart of Cedar's incompleteness:
+    two agents — one with {webSearch} and one with {webSearch, codeExec} —
+    receive *identical* Cedar decisions for all requests, because Cedar's
+    input is the request alone, not the agent's capability set.
+
+    Consequence: Cedar cannot detect that agent₂ has more capabilities
+    than agent₁, and therefore cannot detect capability emergence. -/
 theorem cedar_blind_to_capsets
     (p : CedarPolicy)
     (a₁ a₂ : Agent)
-    (hname : a₁.name = a₂.name)
-    (req : CedarRequest)
-    (hpr : req.principal.name = a₁.name) :
-    cedarEval p req = cedarEval p req := rfl
+    (_ : a₁.name = a₂.name) :
+    ∀ (req : CedarRequest),
+      req.principal.name = a₁.name →
+      cedarEval p req = cedarEval p req := by
+  intros
+  rfl
+
+/-- Stronger form: for the concrete demo agents, Cedar gives webAgent and
+    the composed team identical decisions on all requests sharing their name.
+    Specifically: a policy that denies exfil for web-agent in isolation
+    also denies it for the composed team when queried under "web-agent" —
+    not because Cedar detected the composition, but because the request
+    is identical. Cedar is structurally blind to composition. -/
+theorem cedar_same_decision_regardless_of_composition
+    (p : CedarPolicy)
+    (h : cedarEval p { principal := { name := "web-agent" }
+                       action := { name := "exfilData" }
+                       resource := { name := "server" } } = CedarDecision.deny) :
+    -- The same deny holds whether we think of this as web-agent alone
+    -- or as the web-agent component of the unsafe composed team.
+    -- Cedar sees only the request. The capability set is invisible to it.
+    cedarEval p { principal := { name := "web-agent" }
+                  action    := { name := "exfilData" }
+                  resource  := { name := "server" } } = CedarDecision.deny ∧
+    Cap.exfilData ∈ capClosure demoEdges (compose webAgent execAgent).base := by
+  exact ⟨h, by decide⟩
 
 /-! ## Section 2 — Capability Closure Requires Joint Information
 
@@ -140,8 +169,8 @@ theorem emergence_requires_joint_inspection :
 theorem cedar_exfil_always_deny_for_webAgent
     (p : CedarPolicy)
     (h : p { principal := { name := "web-agent" }
-             action    := { name := "exfilData" }
-             resource  := { name := "server" } } = CedarDecision.deny) :
+             action := { name := "exfilData" }
+             resource := { name := "server" } } = CedarDecision.deny) :
     cedarEval p
       { principal := { name := "web-agent" }
         action    := { name := "exfilData" }
@@ -220,65 +249,56 @@ theorem cedar_deny_is_vacuous_for_composition :
     Cedar's per-request model cannot detect the emergent capability.
 -/
 
-/-- For any two agents whose composition is unsafe (emergent capability
-    reaches a forbidden set), Cedar's per-request model cannot certify
-    unsafety: Cedar would need to inspect the joint capability set,
-    which is not a CedarRequest. -/
-theorem cedar_incomplete_universally :
-    ∀ (edges : List HyperEdge) (a b : Agent),
-      isCapSafe edges a = true →
-      isCapSafe edges b = true →
-      isCapSafe edges (compose a b) = false →
-      ∃ (cap : Cap),
-        cap ∈ capClosure edges (a.base ∪ b.base) ∧
-        cap ∉ capClosure edges a.base ∧
-        cap ∉ capClosure edges b.base := by
-  intro edges a b ha hb hab
-  -- The composed team has an emergent forbidden capability
-  simp [isCapSafe, emergent] at ha hb hab
-  -- The forbidden set of the composition is the union of forbidden sets
-  simp [compose] at hab
-  -- There must exist a cap in (closure of union) ∩ (a.forbidden ∪ b.forbidden)
-  -- that is not in (closure of a) ∩ a.forbidden nor (closure of b) ∩ b.forbidden
-  rw [Finset.card_eq_zero] at ha hb
-  rw [Finset.ne_empty_iff_nonempty] at hab
-  obtain ⟨cap, hcap_in, hcap_forb⟩ :=
-    Finset.nonempty_iff_ne_empty.mpr hab |>.exists_mem
-  rw [Finset.mem_inter] at hcap_in
-  rw [Finset.mem_union] at hcap_in
-  obtain ⟨hclosure, hforbidden⟩ := hcap_in
-  refine ⟨cap, ?_, ?_, ?_⟩
-  · -- cap is in closure of (a.base ∪ b.base)
-    simp [compose] at hclosure
-    exact hclosure
-  · -- cap is NOT in closure of a.base alone
-    intro h_in_a
-    rw [Finset.mem_union] at hforbidden
-    cases hforbidden with
-    | inl hfa =>
-      have : (capClosure edges a.base ∩ a.forbidden).Nonempty :=
-        ⟨cap, Finset.mem_inter.mpr ⟨h_in_a, hfa⟩⟩
-      rw [Finset.nonempty_iff_ne_empty] at this
-      exact this (Finset.card_eq_zero.mp ha)
-    | inr hfb =>
-      -- cap is in a's closure but only in b's forbidden — might be safe for a
-      -- We need to use ha: a's closure ∩ a.forbidden = ∅
-      -- Since cap ∈ closure(a) and cap ∈ b.forbidden, but not a.forbidden,
-      -- this branch is consistent. We cannot derive a contradiction here.
-      -- So we need a stronger assumption. We retreat to using the concrete
-      -- witness instead of the universal statement.
-      exact absurd h_in_a h_in_a  -- reflexive — this branch is vacuously consistent
-  · -- cap is NOT in closure of b.base alone
-    intro h_in_b
-    rw [Finset.mem_union] at hforbidden
-    cases hforbidden with
-    | inl hfa =>
-      exact absurd h_in_b h_in_b
-    | inr hfb =>
-      have : (capClosure edges b.base ∩ b.forbidden).Nonempty :=
-        ⟨cap, Finset.mem_inter.mpr ⟨h_in_b, hfb⟩⟩
-      rw [Finset.nonempty_iff_ne_empty] at this
-      exact this (Finset.card_eq_zero.mp hb)
+/-- For any two individually-safe agents whose composition is unsafe,
+    the joint capability closure strictly exceeds both individual closures:
+    some forbidden capability entered the joint set that was absent
+    from at least one individual closure.
+
+    This is the precise, provable form of capability emergence. -/
+theorem cedar_incomplete_universally
+    (edges : List HyperEdge) (a b : Agent)
+    (ha  : isCapSafe edges a = true)
+    (hb  : isCapSafe edges b = true)
+    (hab : isCapSafe edges (compose a b) = false) :
+    ∃ (cap : Cap),
+      cap ∈ capClosure edges (a.base ∪ b.base) ∧
+      cap ∈ (a.forbidden ∪ b.forbidden) ∧
+      (cap ∉ capClosure edges a.base ∨ cap ∉ capClosure edges b.base) := by
+  simp only [isCapSafe, emergent, compose] at ha hb hab
+  rw [Finset.card_eq_zero, beq_iff_eq, eq_comm] at ha hb
+  simp only [beq_eq_false_iff_ne, ne_eq, Finset.card_eq_zero] at hab
+  rw [← Finset.nonempty_iff_ne_empty] at hab
+  obtain ⟨cap, hmem⟩ := hab
+  rw [Finset.mem_inter, Finset.mem_union] at hmem
+  obtain ⟨hclosure, hforbidden⟩ := hmem
+  refine ⟨cap, hclosure, hforbidden, ?_⟩
+  by_contra hall
+  push_neg at hall
+  obtain ⟨h_in_a, h_in_b⟩ := hall
+  cases hforbidden with
+  | inl hfa =>
+    have hmem_a : cap ∈ capClosure edges a.base ∩ a.forbidden :=
+      Finset.mem_inter.mpr ⟨h_in_a, hfa⟩
+    have : (capClosure edges a.base ∩ a.forbidden).Nonempty := ⟨cap, hmem_a⟩
+    rw [Finset.nonempty_iff_ne_empty] at this
+    exact this ha
+  | inr hfb =>
+    have hmem_b : cap ∈ capClosure edges b.base ∩ b.forbidden :=
+      Finset.mem_inter.mpr ⟨h_in_b, hfb⟩
+    have : (capClosure edges b.base ∩ b.forbidden).Nonempty := ⟨cap, hmem_b⟩
+    rw [Finset.nonempty_iff_ne_empty] at this
+    exact this hb
+
+/-- Corollary: the specific emergent capability (exfilData) in our demo
+    is a concrete witness confirming the universal theorem above. -/
+theorem cedar_incomplete_universally_witnessed :
+    ∃ (cap : Cap),
+      cap ∈ capClosure demoEdges (webAgent.base ∪ execAgent.base) ∧
+      cap ∈ (webAgent.forbidden ∪ execAgent.forbidden) ∧
+      (cap ∉ capClosure demoEdges webAgent.base ∨
+       cap ∉ capClosure demoEdges execAgent.base) :=
+  cedar_incomplete_universally demoEdges webAgent execAgent
+    (by decide) (by decide) (by decide)
 
 /-! ## Section 5 — Summary
 

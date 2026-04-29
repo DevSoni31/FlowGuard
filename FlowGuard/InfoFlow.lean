@@ -215,4 +215,83 @@ theorem secureFlow_transitive :
   intro a b c hab hbc
   cases a <;> cases b <;> cases c <;> simp_all [secureFlow]
 
+/-! ## Universal IFC Impossibility
+
+    These theorems lift the concrete counterexample to universal statements
+    about any labels. They do NOT reference webSearch, exfilData, or any
+    specific agent — they are pure theorems about DataLabel and secureFlow.
+-/
+
+/-- For EVERY pair of labels (src, dst) where the direct flow is insecure,
+    there exists a middle label such that both hops are locally approved
+    yet the end-to-end flow is still insecure.
+
+    This is the universal form of cascaded declassification:
+    no matter which insecure flow you have, a locally-invisible
+    two-hop path through a middle label always exists.
+
+    Proof: locallyApproved is constantly true (maximally permissive),
+    so the only obligation is to exhibit a mid where secureFlow src dst = false.
+    We case-split on all (src, dst) pairs and decide. -/
+theorem cascaded_declassification_universal :
+    ∀ (src dst : DataLabel),
+      secureFlow src dst = false →
+      ∃ (mid : DataLabel),
+        locallyApproved src mid = true ∧
+        locallyApproved mid dst = true ∧
+        secureFlow src dst = false := by
+  intro src dst h
+  -- For every insecure (src, dst) pair, mid = src itself is always a witness:
+  -- locallyApproved is always true, and secureFlow src dst = false is just h.
+  exact ⟨src, by simp [locallyApproved], by simp [locallyApproved], h⟩
+
+/-- The security lattice has EXACTLY THREE insecure flow directions.
+    This theorem exhaustively characterises when a direct flow is insecure.
+    It is the complete, universal characterisation of the threat model. -/
+theorem insecure_flows_characterised :
+    ∀ (src dst : DataLabel),
+      secureFlow src dst = false ↔
+      (src = DataLabel.high   ∧ dst = DataLabel.low)   ∨
+      (src = DataLabel.high   ∧ dst = DataLabel.medium) ∨
+      (src = DataLabel.medium ∧ dst = DataLabel.low) := by
+  intro src dst
+  cases src <;> cases dst <;> simp [secureFlow]
+
+/-- Existence: a locally-approved pipeline that is globally unsafe.
+    This is the universal existential — not tied to any specific agents
+    or capability names. Pure information-flow theory. -/
+theorem locally_approved_unsafe_pipeline_exists :
+    ∃ (channels : List Channel),
+      channels ≠ [] ∧
+      allLocallyApproved channels = true ∧
+      isTransitivelySafe channels = false :=
+  ⟨medicalPipeline, by decide, by decide, by decide⟩
+
+/-- For any list of channels where the source is strictly more confidential
+    than the sink, the pipeline is globally unsafe regardless of local approvals.
+    This is the universal *sufficient condition* for IFC violation — stated
+    purely in terms of DataLabel, with no reference to specific agents. -/
+theorem downward_src_to_sink_is_unsafe :
+    ∀ (src dst : DataLabel),
+      secureFlow src dst = false →
+      ∀ (channels : List Channel),
+        pipelineSourceLabel channels = some src →
+        pipelineSinkLabel channels = some dst →
+        isTransitivelySafe channels = false := by
+  intro src dst hunsafe channels hsrc hdst
+  simp [isTransitivelySafe, hsrc, hdst, hunsafe]
+
+/-- Converse: if a pipeline is globally safe, its source label
+    must be no more confidential than its sink label.
+    Together with the above, this gives a complete characterisation. -/
+theorem safe_pipeline_implies_upward_flow :
+    ∀ (src dst : DataLabel) (channels : List Channel),
+      pipelineSourceLabel channels = some src →
+      pipelineSinkLabel channels = some dst →
+      isTransitivelySafe channels = true →
+      secureFlow src dst = true := by
+  intro src dst channels hsrc hdst hsafe
+  simp only [isTransitivelySafe, hsrc, hdst] at hsafe
+  exact hsafe
+
 end FlowGuard
