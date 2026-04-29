@@ -257,23 +257,23 @@ theorem cedar_deny_is_vacuous_for_composition :
     This is the precise, provable form of capability emergence. -/
 theorem cedar_incomplete_universally
     (edges : List HyperEdge) (a b : Agent)
-    (ha  : isCapSafe edges a = true)
-    (hb  : isCapSafe edges b = true)
+    (ha : isCapSafe edges a = true)
+    (hb : isCapSafe edges b = true)
     (hab : isCapSafe edges (compose a b) = false) :
     ∃ (cap : Cap),
       cap ∈ capClosure edges (a.base ∪ b.base) ∧
       cap ∈ (a.forbidden ∪ b.forbidden) ∧
       (cap ∉ capClosure edges a.base ∨ cap ∉ capClosure edges b.base) := by
   simp only [isCapSafe, emergent, compose] at ha hb hab
-  rw [Finset.card_eq_zero, beq_iff_eq, eq_comm] at ha hb
+  rw [beq_iff_eq, Finset.card_eq_zero] at ha hb
   simp only [beq_eq_false_iff_ne, ne_eq, Finset.card_eq_zero] at hab
-  rw [← Finset.nonempty_iff_ne_empty] at hab
+  rw [← ne_eq, ← Finset.nonempty_iff_ne_empty] at hab
   obtain ⟨cap, hmem⟩ := hab
   rw [Finset.mem_inter, Finset.mem_union] at hmem
   obtain ⟨hclosure, hforbidden⟩ := hmem
-  refine ⟨cap, hclosure, hforbidden, ?_⟩
+  refine ⟨cap, hclosure, Finset.mem_union.mpr hforbidden, ?_⟩
   by_contra hall
-  push_neg at hall
+  push Not at hall
   obtain ⟨h_in_a, h_in_b⟩ := hall
   cases hforbidden with
   | inl hfa =>
