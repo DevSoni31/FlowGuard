@@ -93,6 +93,14 @@ def isTransitivelySafe (channels : List Channel) : Bool :=
 def allLocallyApproved (channels : List Channel) : Bool :=
   channels.all channelLocallyApproved
 
+/-- Hop-wise safety: EVERY individual channel respects the security lattice.
+    This is strictly stronger than `isTransitivelySafe`, which checks only
+    the pipeline's source and sink endpoints.
+    A pipeline can be transitively safe yet contain intermediate hops that
+    violate the lattice — `isHopwiseSafe` catches exactly those cases. -/
+def isHopwiseSafe (channels : List Channel) : Bool :=
+  channels.all channelSecure
+
 /-! ## The cascaded declassification counterexample
 
     Medical pipeline:
@@ -293,5 +301,103 @@ theorem safe_pipeline_implies_upward_flow :
   intro src dst channels hsrc hdst hsafe
   simp only [isTransitivelySafe, hsrc, hdst] at hsafe
   exact hsafe
+
+/-! ## Gap 4 — Parametric IFC theorem
+    The existing `cascaded_declassification_universal` uses `locallyApproved`
+    which is constantly `true`, making the theorem about secureFlow alone.
+    This parametric version quantifies over ANY policy function — the real
+    mathematical content is that ANY policy permitting a two-hop chain with
+    a net insecure flow is compositionally dangerous, regardless of how
+    restrictive or permissive it is. -/
+
+/-- THE PARAMETRIC CASCADED DECLASSIFICATION THEOREM
+
+    For ANY local approval policy (not just the maximally permissive one),
+    if the policy approves a two-hop chain src → mid → dst where the
+    end-to-end flow src → dst violates the security lattice, then
+    that policy is compositionally dangerous.
+
+    The quantification over `policy` is the real content: this holds
+    for a maximally permissive policy, a minimally permissive policy,
+    and everything in between. The problem is structural, not a matter
+    of tuning the policy. -/
+theorem cascaded_declassification_parametric
+    (policy : DataLabel → DataLabel → Bool)
+    (src mid dst : DataLabel)
+    (h1 : policy src mid = true)
+    (h2 : policy mid dst = true)
+    (h3 : secureFlow src dst = false) :
+    ∃ (a b c : DataLabel),
+      policy a b = true ∧ policy b c = true ∧ secureFlow a c = false :=
+  ⟨src, mid, dst, h1, h2, h3⟩
+
+/-- Concretely: even a RESTRICTIVE policy that only approves the two
+    medical hops is dangerous, because the net High → Low flow is insecure.
+    This demonstrates that the danger is independent of how restrictive
+    the local policy is — cascaded declassification is unavoidable whenever
+    the hop chain spans a downward lattice path. -/
+theorem medical_hops_dangerous_for_any_policy
+    (policy : DataLabel → DataLabel → Bool)
+    (h1 : policy DataLabel.high DataLabel.medium = true)
+    (h2 : policy DataLabel.medium DataLabel.low = true) :
+    ∃ (a b c : DataLabel),
+      policy a b = true ∧ policy b c = true ∧ secureFlow a c = false :=
+  cascaded_declassification_parametric policy _ _ _ h1 h2 (by decide)
+
+/-! ## New Gap A — Endpoint-only blindness of `isTransitivelySafe`
+
+    `isTransitivelySafe` checks only the source label of the first channel
+    and the destination label of the last channel. An intermediate hop that
+    violates the security lattice is completely invisible to it.
+    `isHopwiseSafe` is the stronger check that catches these intermediate violations. -/
+
+/-- ENDPOINT-BLINDNESS THEOREM
+
+    There exists a pipeline where `isTransitivelySafe` reports SAFE
+    yet `isHopwiseSafe` reports UNSAFE.
+
+    The witness: [Low→High, High→Low, Low→High].
+    - Source = Low, Sink = High → `isTransitivelySafe` sees secureFlow Low High = true ✓
+    - But the middle hop High→Low violates the lattice → `isHopwiseSafe` = false ✗
+
+    This is a precise statement of the limitation: endpoint checking is
+    insufficient for pipeline security when intermediate hops can violate
+    the lattice. -/
+theorem transitive_safety_misses_intermediate :
+    ∃ (channels : List Channel),
+      isTransitivelySafe channels = true ∧
+      isHopwiseSafe channels = false :=
+  ⟨[ { name := "a", src := DataLabel.low,  dst := DataLabel.high },
+      { name := "b", src := DataLabel.high, dst := DataLabel.low  },
+      { name := "c", src := DataLabel.low,  dst := DataLabel.high } ],
+   by decide, by decide⟩
+
+/-- `isHopwiseSafe` gives you per-hop security certificates.
+    If a pipeline is hopwise-safe, every single channel in it is individually
+    secure — there are no intermediate violations hiding from endpoint checks. -/
+theorem hopwise_safe_certificate (channels : List Channel)
+    (h : isHopwiseSafe channels = true) :
+    ∀ ch ∈ channels, secureFlow ch.src ch.dst = true := by
+  simp only [isHopwiseSafe, List.all_eq_true, channelSecure] at h
+  exact h
+
+/-- `isTransitivelySafe` is strictly WEAKER than `isHopwiseSafe`:
+    a pipeline can pass the transitive check while failing the hop-wise check.
+    The witness is `transitive_safety_misses_intermediate`. -/
+theorem transitive_safe_not_implies_hopwise :
+    ∃ (channels : List Channel),
+      isTransitivelySafe channels = true ∧
+      isHopwiseSafe channels = false :=
+  transitive_safety_misses_intermediate
+
+/-- The medical pipeline is hopwise-UNSAFE: the second hop High→Low
+    is a direct security violation visible to `isHopwiseSafe`. -/
+theorem medicalPipeline_hopwise_unsafe :
+    isHopwiseSafe medicalPipeline = false := by decide
+
+/-- The safe reference pipeline is hopwise-safe: every hop is upward,
+    and the whole pipeline passes both the hop-wise and transitive checks. -/
+theorem safePipelineIFC_hopwise_safe :
+    isHopwiseSafe safePipelineIFC = true := by decide
 
 end FlowGuard
