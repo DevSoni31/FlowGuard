@@ -286,7 +286,7 @@ FlowGuard/
 
 ## References
 
-1. Spera, M. (2026). *Hypergraph-based capability modelling for multi-agent AI safety.*
+1. Spera, M. (2026). *Safety is Non-Compositional: A Formal Framework for Capability-Based AI Systems*
    [arXiv:2603.15973](https://arxiv.org/abs/2603.15973)
 
 2. Costa, et al. (2025). *Compositional information-flow security for LLM agent pipelines.*
