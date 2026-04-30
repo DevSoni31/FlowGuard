@@ -318,4 +318,93 @@ theorem nonCompositionality_exists :
   ⟨demoEdges, webAgent, execAgent,
    webAgent_is_safe, execAgent_is_safe, composedTeam_is_unsafe⟩
 
+/-! ## Universal non-compositionality -/
+
+/-- The foldl accumulator in `step` is monotonically growing:
+    the initial set S is always a subset of the final result.
+    This is needed to prove that once a premise is satisfied,
+    it remains satisfied as more elements are added. -/
+private lemma foldl_mono_accum (edges : List HyperEdge) (S : Finset Cap) :
+    S ⊆ List.foldl
+      (fun acc e => if e.premises ⊆ acc then insert e.conclusion acc else acc)
+      S edges := by
+  induction edges generalizing S with
+  | nil => simp
+  | cons e rest ih =>
+    simp only [List.foldl_cons]
+    split_ifs with h
+    · exact (Finset.subset_insert _ _).trans (ih _)
+    · exact ih _
+
+/-- If edge `e` is in `edges` and its premises are already satisfied
+    by the current set `S`, then `e`'s conclusion appears in `step edges S`.
+    This is the key bridge: premise satisfaction → conclusion membership. -/
+private lemma step_conclusion_mem (e : HyperEdge) (edges : List HyperEdge)
+    (S : Finset Cap) (hmem : e ∈ edges) (hprem : e.premises ⊆ S) :
+    e.conclusion ∈ step edges S := by
+  unfold step
+  induction edges generalizing S with
+  | nil => simp at hmem
+  | cons e' rest ih =>
+    simp only [List.foldl_cons, List.mem_cons] at hmem ⊢
+    rcases hmem with rfl | hmem'
+    · -- e is the head; its premises are satisfied, so it fires immediately
+      simp only [hprem, ite_true]
+      exact foldl_mono_accum rest _ (Finset.mem_insert_self e.conclusion S)
+    · -- e is deeper in the list; the accumulator can only grow, preserving hprem
+      split_ifs with h
+      · exact ih (insert e'.conclusion S) hmem' (hprem.trans (Finset.subset_insert _ _))
+      · exact ih S hmem' hprem
+/-- THE UNIVERSAL NON-COMPOSITIONALITY THEOREM
+
+    For ANY edge set and ANY two agents satisfying the structural premises,
+    individual safety does not survive composition.
+
+    The three structural premises on the witness edge `e` are:
+      (i)  Neither agent alone has all of e's prerequisites
+      (ii) Together their bases cover all of e's prerequisites
+      (iii) e's conclusion is forbidden by at least one of them
+
+    Under these premises, the composed agent is provably unsafe.
+    The counterexample in `nonCompositionality_exists` is one instance;
+    this theorem says the phenomenon is generic — it holds for any
+    edges and agents that fit the pattern. -/
+theorem nonCompositionality_universal :
+    ∀ (edges : List HyperEdge) (a b : Agent),
+      isCapSafe edges a = true →
+      isCapSafe edges b = true →
+      (∃ e ∈ edges,
+          ¬ (e.premises ⊆ a.base) ∧
+          ¬ (e.premises ⊆ b.base) ∧
+          e.premises ⊆ a.base ∪ b.base ∧
+          e.conclusion ∈ a.forbidden ∪ b.forbidden) →
+      isCapSafe edges (compose a b) = false := by
+  intro edges a b _ha _hb ⟨e, he_mem, _hna, _hnb, hprem, hforbid⟩
+  -- The joint base is exactly (compose a b).base by definition
+  -- Step 1: e's premises are satisfied by the closure of the joint base
+  have hprem_in_closure : e.premises ⊆ capClosure edges (a.base ∪ b.base) :=
+    hprem.trans (capClosure_extensive edges _)
+  -- Step 2: therefore e fires on the closure, putting e.conclusion inside it
+  have hconc_in_step : e.conclusion ∈ step edges (capClosure edges (a.base ∪ b.base)) :=
+    step_conclusion_mem e edges _ he_mem hprem_in_closure
+  -- Step 3: the closure is a fixed point, so step doesn't escape it
+  rw [capClosure_is_fixpoint] at hconc_in_step
+  -- hconc_in_step : e.conclusion ∈ capClosure edges (a.base ∪ b.base)
+  -- Step 4: e.conclusion is also forbidden in the composition
+  -- (compose a b).forbidden = a.forbidden ∪ b.forbidden by definition
+  have hmem_inter : e.conclusion ∈
+      capClosure edges (a.base ∪ b.base) ∩ (a.forbidden ∪ b.forbidden) :=
+    Finset.mem_inter.mpr ⟨hconc_in_step, hforbid⟩
+  -- Step 5: the intersection is nonempty, so the cardinality is positive
+  have hpos : 0 < (capClosure edges (a.base ∪ b.base) ∩
+      (a.forbidden ∪ b.forbidden)).card :=
+    Finset.card_pos.mpr ⟨e.conclusion, hmem_inter⟩
+  -- Step 6: unfold isCapSafe and compose to expose the boolean expression
+  simp only [isCapSafe, emergent, compose]
+  -- Goal: (capClosure edges (a.base ∪ b.base) ∩ (a.forbidden ∪ b.forbidden)).card == 0 = false
+  have hne : (capClosure edges (a.base ∪ b.base) ∩
+      (a.forbidden ∪ b.forbidden)).card ≠ 0 :=
+    Nat.pos_iff_ne_zero.mp hpos
+  simp [hne]
+
 end FlowGuard
