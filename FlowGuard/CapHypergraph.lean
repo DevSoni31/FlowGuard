@@ -133,6 +133,101 @@ lemma closureAux_step_subset (n : Nat) (edges : List HyperEdge) (S : Finset Cap)
     simp only [closureAux]
     exact ih (step edges S)
 
+/-- `step` and `closureAux` commute:
+    one more `step` after n iterations equals
+    n iterations starting from a pre-stepped seed.
+    Equivalently: step^n(step(S)) = step(step^n(S)). -/
+private lemma step_closureAux_comm
+    (n : Nat) (edges : List HyperEdge) (S : Finset Cap) :
+    step edges (closureAux n edges S) =
+    closureAux n edges (step edges S) := by
+  induction n generalizing S with
+  | zero => simp [closureAux]
+  | succ n ih =>
+    simp only [closureAux]
+    exact ih (step edges S)
+
+/-- The cardinality of `closureAux` is non-decreasing in the iteration count. -/
+private lemma closureAux_card_mono
+    (n : Nat) (edges : List HyperEdge) (S : Finset Cap) :
+    (closureAux n edges S).card ≤ (closureAux (n + 1) edges S).card :=
+  Finset.card_le_card (closureAux_step_subset n edges S)
+
+/-- Every `closureAux` output fits inside `Finset.univ`,
+    so its cardinality is bounded by `Fintype.card Cap`. -/
+private lemma closureAux_card_le_univ
+    (n : Nat) (edges : List HyperEdge) (S : Finset Cap) :
+    (closureAux n edges S).card ≤ Fintype.card Cap := by
+  have h := Finset.card_le_card (Finset.subset_univ (closureAux n edges S))
+  rwa [Finset.card_univ] at h
+
+/-- Once two consecutive iterations are equal, the sequence has stopped forever. -/
+private lemma closureAux_stable_of_eq (n : Nat) (edges : List HyperEdge) (S : Finset Cap)
+    (h : closureAux (n + 1) edges S = closureAux n edges S) :
+    ∀ m, closureAux (n + m) edges S = closureAux n edges S := by
+  intro m
+  induction m with
+  | zero => rfl
+  | succ m ih =>
+    rw [Nat.add_succ]
+    calc
+      closureAux (n + m + 1) edges S
+        = closureAux (n + m) edges (step edges S) := rfl
+      _ = step edges (closureAux (n + m) edges S) := by rw [← step_closureAux_comm]
+      _ = step edges (closureAux n edges S) := by rw [ih]
+      _ = closureAux n edges (step edges S) := by rw [step_closureAux_comm]
+      _ = closureAux (n + 1) edges S := rfl
+      _ = closureAux n edges S := h
+
+/-- Auxiliary lemma to manually teach `omega` the pigeonhole principle:
+    Either the set strictly grows at every step, or it stabilized early. -/
+private lemma closureAux_card_stabilises_aux (n : Nat) (edges : List HyperEdge) (S : Finset Cap) :
+    (closureAux n edges S).card ≥ S.card + n ∨
+    ∃ k < n, closureAux k edges S = closureAux (k + 1) edges S := by
+  induction n with
+  | zero =>
+    left
+    simp only [closureAux]
+    omega
+  | succ n ih =>
+    rcases ih with h_card | ⟨k, hk_lt, hk_eq⟩
+    · by_cases h_eq : closureAux n edges S = closureAux (n + 1) edges S
+      · right; use n; exact ⟨Nat.lt_succ_self n, h_eq⟩
+      · left
+        have h_sub := closureAux_step_subset n edges S
+        have h_ssub : closureAux n edges S ⊂ closureAux (n + 1) edges S :=
+          Finset.ssubset_iff_subset_ne.mpr ⟨h_sub, h_eq⟩
+        have h_card_lt : (closureAux n edges S).card < (closureAux (n + 1) edges S).card :=
+          Finset.card_lt_card h_ssub
+        omega
+    · right; use k; exact ⟨Nat.lt_succ_of_lt hk_lt, hk_eq⟩
+
+/-- The cardinality pump: the sequence must have stabilized by step `Fintype.card Cap`. -/
+private lemma closureAux_card_stabilises (edges : List HyperEdge) (S : Finset Cap) :
+    closureAux (Fintype.card Cap) edges S =
+    closureAux (Fintype.card Cap + 1) edges S := by
+  have h_aux := closureAux_card_stabilises_aux (Fintype.card Cap + 1) edges S
+  rcases h_aux with h_card | ⟨k, hk_lt, hk_eq⟩
+  · have h_max := closureAux_card_le_univ (Fintype.card Cap + 1) edges S
+    omega
+  · have eq1 : k + (Fintype.card Cap - k) = Fintype.card Cap := by omega
+    have eq2 : k + (Fintype.card Cap + 1 - k) = Fintype.card Cap + 1 := by omega
+    have h_stable_1 := closureAux_stable_of_eq k edges S hk_eq.symm (Fintype.card Cap - k)
+    have h_stable_2 := closureAux_stable_of_eq k edges S hk_eq.symm (Fintype.card Cap + 1 - k)
+    rw [eq1] at h_stable_1
+    rw [eq2] at h_stable_2
+    rw [h_stable_1, h_stable_2]
+
+/-- `capClosure` is an absolute fixed point under `step`. -/
+theorem capClosure_is_fixpoint (edges : List HyperEdge) (S : Finset Cap) :
+    step edges (capClosure edges S) = capClosure edges S := by
+  unfold capClosure
+  calc
+    step edges (closureAux (Fintype.card Cap) edges S)
+      = closureAux (Fintype.card Cap) edges (step edges S) := by rw [step_closureAux_comm]
+    _ = closureAux (Fintype.card Cap + 1) edges S := rfl
+    _ = closureAux (Fintype.card Cap) edges S := (closureAux_card_stabilises edges S).symm
+
 /-- `capClosure` is the LEAST closed superset of `S`:
     any set T that contains S and is closed under all hyperedges
     must contain the closure.
