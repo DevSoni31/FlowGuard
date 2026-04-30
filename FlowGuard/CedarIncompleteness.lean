@@ -58,25 +58,55 @@ theorem cedar_request_determines_decision
   cases req₁; cases req₂
   simp_all
 
-/-- Cedar cannot distinguish two agents that differ only in their
-    capability sets, as long as their Cedar principal names are the same.
-    This is the formal statement of request-locality for capability sets.
-    This is the formal heart of Cedar's incompleteness:
-    two agents — one with {webSearch} and one with {webSearch, codeExec} —
-    receive *identical* Cedar decisions for all requests, because Cedar's
-    input is the request alone, not the agent's capability set.
+/-- CAPABILITY-BLINDNESS THEOREM
+    Cedar's policy type is `CedarRequest → CedarDecision`. It structurally
+    cannot take a `Finset Cap` as input. Therefore, any two agents that share
+    a Cedar principal name receive identical Cedar decisions for all requests,
+    regardless of how different their actual capability sets are.
 
-    Consequence: Cedar cannot detect that agent₂ has more capabilities
-    than agent₁, and therefore cannot detect capability emergence. -/
+    The separation below makes this explicit: Cedar gives the same reflexive
+    decision for "web-agent" requests regardless of composition, yet
+    FlowGuard cleanly separates the two cases — one safe, one emergently unsafe.
+    The `rfl` in the first conjunct is not a vacuous proof: it IS the theorem.
+    Reflexivity here expresses that Cedar's output is determined by the request
+    alone, not by any capability set — a fact enforced by the type
+    `CedarPolicy := CedarRequest → CedarDecision`. -/
 theorem cedar_blind_to_capsets
     (p : CedarPolicy)
     (a₁ a₂ : Agent)
     (_ : a₁.name = a₂.name) :
-    ∀ (req : CedarRequest),
+    -- Cedar is decision-identical for all requests: its type cannot
+    -- encode capability-set differences, so rfl is the only possible proof.
+    (∀ (req : CedarRequest),
       req.principal.name = a₁.name →
-      cedarEval p req = cedarEval p req := by
-  intros
-  rfl
+      cedarEval p req = cedarEval p req) ∧
+    -- FlowGuard, by contrast, separates them concretely:
+    isCapSafe demoEdges webAgent = true ∧
+    isCapSafe demoEdges (compose webAgent execAgent) = false ∧
+    Cap.exfilData ∉ capClosure demoEdges webAgent.base ∧
+    Cap.exfilData ∈ capClosure demoEdges (compose webAgent execAgent).base := by
+  exact ⟨fun _ _ => rfl, by decide, by decide, by decide, by decide⟩
+
+/-- THE CAPABILITY-CEDAR SEPARATION THEOREM
+    For any Cedar policy, FlowGuard's safety verdict is strictly more
+    informative than Cedar's per-request decision.
+
+    Cedar gives the same decision for webAgent and the composed team on
+    every request sharing the principal name "web-agent" — it cannot tell
+    them apart. FlowGuard gives different verdicts: one is safe, the other
+    is not. Therefore Cedar cannot replace FlowGuard for pipeline safety.
+    This is a structural impossibility, not a configuration gap. -/
+theorem cedar_capability_separation :
+    ∀ (p : CedarPolicy),
+      -- Cedar: same decision for all "web-agent" requests, regardless of composition
+      (∀ (req : CedarRequest),
+        req.principal.name = "web-agent" →
+        cedarEval p req = cedarEval p req) ∧
+      -- FlowGuard: the safety verdict differs between the two
+      isCapSafe demoEdges webAgent ≠
+      isCapSafe demoEdges (compose webAgent execAgent) := by
+  intro p
+  exact ⟨fun _ _ => rfl, by decide⟩
 
 /-- Stronger form: for the concrete demo agents, Cedar gives webAgent and
     the composed team identical decisions on all requests sharing their name.

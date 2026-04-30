@@ -202,6 +202,48 @@ theorem validPipeline_characterisation (P : Pipeline) :
     isTransitivelySafe P.channels = true :=
   fun h1 h2 => ⟨h1, h2⟩
 
+/-- The constructor direction: given the two safety conditions, build
+    a ValidPipeline certificate.
+    This is the *useful* direction — it is how FlowGuard is applied at
+    compile time. If both checks pass, the pipeline is certified. -/
+theorem flowguard_complete (P : Pipeline)
+    (h1 : ∀ a ∈ P.agents, isCapSafe P.capEdges a = true)
+    (h2 : isTransitivelySafe P.channels = true) :
+    ValidPipeline P :=
+  ⟨h1, h2⟩
+
+/-- THE IFF CHARACTERISATION
+    A pipeline is ValidPipeline if and only if BOTH safety conditions hold.
+    This is the exact logical boundary between certified and rejected pipelines.
+    The forward direction is `flowguard_sound`; the backward is `flowguard_complete`.
+    Together they form the complete characterisation. -/
+theorem validPipeline_iff (P : Pipeline) :
+    ValidPipeline P ↔
+    (∀ a ∈ P.agents, isCapSafe P.capEdges a = true) ∧
+    isTransitivelySafe P.channels = true :=
+  ⟨fun h => ⟨h.capSafe, h.ifcSafe⟩, fun ⟨h1, h2⟩ => ⟨h1, h2⟩⟩
+
+/-- Rejection 1: a pipeline with any capability-unsafe agent cannot be certified.
+    There is no ValidPipeline certificate for it — it is a compile-time error. -/
+theorem validPipeline_reject_capUnsafe (P : Pipeline)
+    (h : ∃ a ∈ P.agents, isCapSafe P.capEdges a = false) :
+    ¬ ValidPipeline P := by
+  intro hV
+  obtain ⟨a, ha_mem, ha_unsafe⟩ := h
+  have hSafe := hV.capSafe a ha_mem
+  rw [ha_unsafe] at hSafe
+  exact absurd hSafe (by decide)
+
+/-- Rejection 2: a pipeline with a downward information flow cannot be certified.
+    There is no ValidPipeline certificate for it — it is a compile-time error. -/
+theorem validPipeline_reject_ifcUnsafe (P : Pipeline)
+    (h : isTransitivelySafe P.channels = false) :
+    ¬ ValidPipeline P := by
+  intro hV
+  have hSafe := hV.ifcSafe
+  rw [h] at hSafe
+  exact absurd hSafe (by decide)
+
 /-- Both certified pipelines satisfy both obligations — verified side by side. -/
 theorem both_pipelines_certified :
     (∀ a ∈ trustedPipeline.agents,
