@@ -100,6 +100,58 @@ theorem capClosure_extensive (edges : List HyperEdge) (S : Finset Cap) :
     simp only [closureAux]
     exact (step_extensive edges S).trans (ih (step edges S))
 
+/-! ## Empty-edges simplification -/
+
+/-- With no hyperedges, `step` is the identity. -/
+private lemma step_empty (S : Finset Cap) : step [] S = S := by
+  simp [step]
+
+/-- With no hyperedges, `closureAux` is the identity at every iteration count. -/
+lemma closureAux_empty (n : Nat) (S : Finset Cap) : closureAux n [] S = S := by
+  induction n generalizing S with
+  | zero => simp [closureAux]
+  | succ n ih =>
+    simp only [closureAux, step_empty, ih]
+
+/-- With no hyperedges, `capClosure` is the identity:
+    no capability emergence is possible without hyperedges. -/
+@[simp]
+theorem capClosure_empty (S : Finset Cap) : capClosure [] S = S := by
+  simp [capClosure, closureAux_empty]
+
+/-! ## Fixed-point theory -/
+
+/-- `closureAux` is non-decreasing in its iteration count:
+    one more application of `step` always yields a superset. -/
+lemma closureAux_step_subset (n : Nat) (edges : List HyperEdge) (S : Finset Cap) :
+    closureAux n edges S ⊆ closureAux (n + 1) edges S := by
+  induction n generalizing S with
+  | zero =>
+    simp only [closureAux]
+    exact step_extensive edges S
+  | succ n ih =>
+    simp only [closureAux]
+    exact ih (step edges S)
+
+/-- `capClosure` is the LEAST closed superset of `S`:
+    any set T that contains S and is closed under all hyperedges
+    must contain the closure.
+    This is the minimal fixed-point property — `capClosure` is not merely
+    *a* closed superset, but the *smallest possible* one. -/
+theorem capClosure_is_least_fixpoint
+    (edges : List HyperEdge) (S T : Finset Cap)
+    (hS : S ⊆ T)
+    (hfix : step edges T ⊆ T) :
+    capClosure edges S ⊆ T := by
+  suffices h : ∀ n, closureAux n edges S ⊆ T from h (Fintype.card Cap)
+  intro n
+  induction n generalizing S with
+  | zero => simpa [closureAux]
+  | succ n ih =>
+    simp only [closureAux]
+    apply ih
+    exact (step_mono edges hS).trans hfix
+
 /-! ## Agents -/
 
 structure Agent where
