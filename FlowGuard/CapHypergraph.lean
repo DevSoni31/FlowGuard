@@ -407,4 +407,61 @@ theorem nonCompositionality_universal :
     Nat.pos_iff_ne_zero.mp hpos
   simp [hne]
 
+/-! ## Lattice structure of the safe region (New Gap C + Session 5)
+
+    The safe region R(edges, forbidden) = { S | capClosure edges S ∩ forbidden = ∅ }
+    has two key structural properties:
+      1. It is downward-closed: a smaller base set is always at least as safe
+      2. It is closed under intersection: the intersection of two safe base sets is safe
+
+    Together these give the safe region the structure of a Moore family —
+    the foundation for why `capClosure` is the canonical safety boundary.
+
+    A third theorem (New Gap C) justifies the `compose` design choice:
+    using the UNION of forbidden sets is the correct conservative semantics,
+    and this is provable from the safety certificate, not just asserted. -/
+
+/-- DOWNWARD CLOSURE: a smaller base capability set is always at least as safe.
+    If starting from A is safe, starting from any subset B ⊆ A is also safe.
+    This is because `capClosure` is monotone: fewer starting capabilities
+    can only produce fewer emergent capabilities. -/
+theorem safeRegion_downward_closed
+    (edges : List HyperEdge) (forbidden : Finset Cap)
+    (A B : Finset Cap)
+    (hSafe : (capClosure edges A ∩ forbidden).card = 0)
+    (hSub : B ⊆ A) :
+    (capClosure edges B ∩ forbidden).card = 0 := by
+  have hEmpty : capClosure edges A ∩ forbidden = ∅ := Finset.card_eq_zero.mp hSafe
+  apply Finset.card_eq_zero.mpr
+  rw [← Finset.subset_empty]
+  intro x hx
+  rw [Finset.mem_inter] at hx
+  have hxA : x ∈ capClosure edges A := capClosure_mono edges hSub hx.1
+  have hxInter : x ∈ capClosure edges A ∩ forbidden :=
+    Finset.mem_inter.mpr ⟨hxA, hx.2⟩
+  rw [hEmpty] at hxInter
+  simp at hxInter
+
+theorem safeRegion_closed_under_intersection
+    (edges : List HyperEdge) (forbidden : Finset Cap)
+    (A B : Finset Cap)
+    (hA : (capClosure edges A ∩ forbidden).card = 0)
+    (_hB : (capClosure edges B ∩ forbidden).card = 0) :
+    (capClosure edges (A ∩ B) ∩ forbidden).card = 0 :=
+  safeRegion_downward_closed edges forbidden A (A ∩ B) hA Finset.inter_subset_left
+
+theorem compose_forbidden_union_justified
+    (edges : List HyperEdge) (a b : Agent)
+    (h : isCapSafe edges (compose a b) = true) :
+    ∀ cap ∈ a.forbidden ∪ b.forbidden,
+      cap ∉ capClosure edges (a.base ∪ b.base) := by
+  intro cap hcap hmem
+  have hEmpty : capClosure edges (a.base ∪ b.base) ∩ (a.forbidden ∪ b.forbidden) = ∅ := by
+    simp only [isCapSafe, emergent, compose] at h
+    exact Finset.card_eq_zero.mp (by simpa [beq_iff_eq] using h)
+  have hInter : cap ∈ capClosure edges (a.base ∪ b.base) ∩ (a.forbidden ∪ b.forbidden) :=
+    Finset.mem_inter.mpr ⟨hmem, hcap⟩
+  rw [hEmpty] at hInter
+  simp at hInter
+
 end FlowGuard
