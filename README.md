@@ -68,15 +68,6 @@ The video covers:
 - Brief walkthrough of the `--medical-demo` path and the `isTransitivelySafe` vs
    `isHopwiseSafe` distinction
 
-> The video is unlisted on YouTube — accessible via the link above only.
-When you have the YouTube link, simply swap https://youtu.be/PLACEHOLDER with the real URL and replace YOUR_VIDEO_ID in the thumbnail link. Everything else stays identical.
-
-If you want a plain-text fallback link, keep this format nearby:
-
-```text
-▶ FlowGuard PoC Demo: https://youtu.be/YOUR_VIDEO_ID
-```
-
 ---
 
 ## Origin
