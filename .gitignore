@@ -7,3 +7,5 @@
 .venv/
 venv/
 ENV/
+
+_poc_eval.lean

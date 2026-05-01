@@ -176,20 +176,60 @@ DEMO_CHECKS = [
 
 def verify_demo_in_lean() -> list[dict]:
     """
-    Runs each demo check in your actual Lean environment.
-    Returns list of {"label", "passed", "value", "theorem", "lean_output"}.
-    Falls back gracefully if Lean is not installed.
+    Writes ONE .lean file with all #eval calls, runs it ONCE.
+    Much faster than five separate subprocess calls.
+    Falls back gracefully if Lean is not installed or times out.
     """
-    results = []
-    for check in DEMO_CHECKS:
-        out = eval_lean_expr(check["expression"], check["imports"])
-        passed = check["expected"].lower() in out["value"].lower() if out["success"] else False
-        results.append({
-            "label":        check["label"],
-            "passed":       passed,
-            "value":        out["value"],
-            "theorem":      check["theorem"],
-            "lean_output":  out["value"],
-            "lean_success": out["success"],
-        })
-    return results
+    lean_src = """import FlowGuard.CapHypergraph
+import FlowGuard.CedarBridge
+
+#eval isCapSafe demoEdges webAgent
+#eval isCapSafe demoEdges execAgent
+#eval isCapSafe demoEdges (compose webAgent execAgent)
+#eval cedarEval teamPolicy { principal := { name := "webAgent" }, action := { name := "exfilData" }, resource := { name := "net" } }
+#check @capClosure_is_fixpoint
+"""
+    tmp = REPO_ROOT / "_poc_eval.lean"
+    tmp.write_text(lean_src)
+
+    CHECKS = [
+        {"label": "webAgent is individually safe",    "theorem": "webAgent_is_safe",              "expected": "true"},
+        {"label": "execAgent is individually safe",   "theorem": "execAgent_is_safe",             "expected": "true"},
+        {"label": "Composed team is UNSAFE",          "theorem": "composedTeam_is_unsafe",        "expected": "false"},
+        {"label": "Cedar denies exfilData",           "theorem": "cedar_nonCompositionality_gap", "expected": "deny"},
+        {"label": "capClosure is a fixed point",      "theorem": "capClosure_is_fixpoint",        "expected": "capClosure_is_fixpoint"},
+    ]
+
+    try:
+        result = subprocess.run(
+            ["lake", "env", "lean", str(tmp)],
+            cwd=REPO_ROOT,
+            capture_output=True, text=True,
+            timeout=1800   # 30 minutes — covers cold elaboration on Windows
+        )
+        tmp.unlink(missing_ok=True)
+
+        # Each #eval / #check prints one line — split and zip with checks
+        lines = [l.strip() for l in result.stdout.splitlines() if l.strip()]
+        results = []
+        for i, check in enumerate(CHECKS):
+            value  = lines[i] if i < len(lines) else ""
+            passed = check["expected"].lower() in value.lower()
+            results.append({
+                "label":        check["label"],
+                "passed":       passed,
+                "value":        value,
+                "theorem":      check["theorem"],
+                "lean_output":  value,
+                "lean_success": result.returncode == 0,
+            })
+        return results
+
+    except subprocess.TimeoutExpired:
+        tmp.unlink(missing_ok=True)
+        return [{"label": c["label"], "passed": False, "value": "timed out",
+                 "theorem": c["theorem"], "lean_output": "", "lean_success": False}
+                for c in CHECKS]
+    except FileNotFoundError:
+        tmp.unlink(missing_ok=True)
+        return []
