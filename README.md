@@ -298,14 +298,115 @@ proof, that this is insufficient.
 
 ## Quick Start
 
-**Requirements:** Lean 4 and `elan`. The correct toolchain is pinned in `lean-toolchain`.
+### Prerequisites
+
+You need two things installed before anything else.
+
+**Lean 4 + elan** (for the proof layer):
+```bash
+curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh
+```
+The correct Lean toolchain is pinned in `lean-toolchain` at the repo root - `elan` reads
+this automatically and downloads the right version on the first `lake build`.
+
+**Python 3.11+ + uv** (for the PoC pipeline):
+```bash
+# Install uv (fast Python package manager)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Inside the repo - uv reads pyproject.toml and locks from uv.lock
+uv sync
+```
+`uv sync` installs all Python dependencies from `uv.lock` into an isolated virtual
+environment. You do not need to activate it - `uv run` handles that. The lock file is
+committed, so the environment is fully reproducible.
+
+---
+
+### Step 1 - Build the Lean proofs
 
 ```bash
 git clone https://github.com/DevSoni31/FlowGuard.git
 cd FlowGuard
 lake build
-# Build completed successfully (3304 jobs).
 ```
+
+**Expected output:**
+Build completed successfully (3304 jobs).
+
+> ⚠️ **Time estimate:** The first `lake build` downloads the Lean toolchain and Mathlib
+> caches before compiling. Expect **15-30 minutes** depending on your machine and network.
+> Subsequent builds with no `.lean` file changes are near-instant (all jobs are cached).
+
+This step is **mandatory before running the PoC**. The Python pipeline queries the Lean
+kernel at runtime; if the proofs have not been compiled, those queries will fail.
+
+---
+
+### Step 2 - Run the PoC pipeline
+
+```bash
+uv run analyze.py --demo --no-dashboard --mode ast --skip-lean
+```
+
+**What each flag does:**
+
+| Flag | Purpose |
+|---|---|
+| `--demo` | Runs the main capability-emergence demo (web agent + code exec agent) |
+| `--no-dashboard` | Skips the Rich terminal dashboard; prints clean output line-by-line |
+| `--mode ast` | Uses the AST (Abstract Syntax Tree) extractor - reads agent source code directly, no API key required |
+| `--skip-lean` | Skips re-running `lake build`; uses the already-compiled proof artifacts from Step 1 |
+
+> ⏱️ **Time estimate:** The full PoC run takes approximately **30 minutes**. This includes
+> live Lean kernel queries, hyperedge closure computation, IFC checks, and theorem citation
+> resolution against the `.lean` source files.
+
+**Expected final output:**
+COMPOSITION RESULT - UNSAFE
+Emergent capability detected:
+webSearch ∧ codeExec → exfilData
+codeExec ∧ networkAccess → remoteExec
+
+Theorem cited: nonCompositionality_universal (CapHypergraph.lean)
+
+---
+
+### Optional - LLM extraction mode
+
+The `--mode ast` flag is the default and recommended path for replication because it
+requires no external API key. If you have a Gemini API key available, you can switch to
+LLM mode for richer semantic capability inference:
+
+1. Add your key to `.env`:
+   GEMINI_API_KEY=your_key_here
+
+2. Pass `--mode llm` (or `--mode both` to run AST first and let the LLM refine):
+```bash
+uv run analyze.py --demo --no-dashboard --mode llm --skip-lean
+```
+
+The `--mode both` option runs AST extraction first and passes those results to Gemini as
+a prior, which generally produces the most accurate capability spec.
+
+---
+
+### Step 3 - Medical pipeline demo (bonus)
+
+The `--medical-demo` path exercises the information-flow control layer independently,
+demonstrating the `High → Medium → Low` transitive violation:
+
+```bash
+uv run analyze.py --medical-demo --no-dashboard --mode ast --skip-lean
+```
+
+This surfaces the distinction between `isTransitivelySafe` (endpoint check - passes) and
+`isHopwiseSafe` (per-hop check - fails), citing `transitive_safety_misses_intermediate`
+from `InfoFlow.lean`.
+
+---
+
+### Repository layout
 
 ```text
 FlowGuard/
@@ -315,7 +416,13 @@ FlowGuard/
 ├── FlowCheck.lean           # Layer 4: ValidPipeline, HopwiseValidPipeline, iff characterisation
 ├── CedarBridge.lean         # Layer 5: Cedar policy definitions, incompleteness master theorem
 ├── CedarIncompleteness.lean # Layer 6: cedar_blind_to_capsets, universal Cedar incompleteness
-└── Basic.lean               # Module entry point
+├── Basic.lean               # Module entry point
+├── poc/analyze.py           # PoC pipeline - AST extractor, Lean queries, verdict engine
+├── pyproject.toml           # Python project metadata and dependencies
+├── uv.lock                  # Locked dependency tree (committed - ensures exact replication)
+├── lakefile.toml            # Lean project manifest (toolchain, dependencies, build targets)
+├── lean-toolchain           # Pins the exact Lean 4 toolchain version used
+└── poc/sample_agents/       # web_search_agent.py, code_exec_agent.py, medical_pipeline.py
 ```
 
 ---
