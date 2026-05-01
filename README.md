@@ -51,6 +51,34 @@ agent systems.
 
 ---
 
+
+## Demo
+
+A full walkthrough of the FlowGuard PoC pipeline — capability extraction, hyperedge
+closure, Cedar comparison, and live Lean theorem citation — is available here:
+
+[![FlowGuard PoC Demo](https://img.youtube.com/vi/YOUR_VIDEO_ID/maxresdefault.jpg)](https://youtu.be/PLACEHOLDER)
+
+The video covers:
+- Cloning the repo and running `lake build` (time-lapsed)
+- Running `python analyze.py --demo --no-dashboard --mode ast --skip-lean`
+- The three-phase terminal output: extraction → individual checks → composition verdict
+- The Cedar blind-spot panel and its connection to `cedar_nonCompositionality_gap`
+- Live theorem citation: statement text read directly from `CapHypergraph.lean`
+- Brief walkthrough of the `--medical-demo` path and the `isTransitivelySafe` vs
+   `isHopwiseSafe` distinction
+
+> The video is unlisted on YouTube — accessible via the link above only.
+When you have the YouTube link, simply swap https://youtu.be/PLACEHOLDER with the real URL and replace YOUR_VIDEO_ID in the thumbnail link. Everything else stays identical.
+
+If you want a plain-text fallback link, keep this format nearby:
+
+```text
+▶ FlowGuard PoC Demo: https://youtu.be/YOUR_VIDEO_ID
+```
+
+---
+
 ## Origin
 
 This project was built during the **LeanLang for Verified Autonomy Hackathon**
@@ -327,31 +355,6 @@ hyperedge closure, theorem citations, and the dashboard - works identically acro
 three modes.
 
 ---
-
-## Demo
-
-A full walkthrough of the FlowGuard PoC pipeline — capability extraction, hyperedge
-closure, Cedar comparison, and live Lean theorem citation — is available here:
-
-[![FlowGuard PoC Demo](https://img.youtube.com/vi/YOUR_VIDEO_ID/maxresdefault.jpg)](https://youtu.be/PLACEHOLDER)
-
-The video covers:
-- Cloning the repo and running `lake build` (time-lapsed)
-- Running `python analyze.py --demo --no-dashboard --mode ast --skip-lean`
-- The three-phase terminal output: extraction → individual checks → composition verdict
-- The Cedar blind-spot panel and its connection to `cedar_nonCompositionality_gap`
-- Live theorem citation: statement text read directly from `CapHypergraph.lean`
-- Brief walkthrough of the `--medical-demo` path and the `isTransitivelySafe` vs
-   `isHopwiseSafe` distinction
-
-> The video is unlisted on YouTube — accessible via the link above only.
-When you have the YouTube link, simply swap https://youtu.be/PLACEHOLDER with the real URL and replace YOUR_VIDEO_ID in the thumbnail link. Everything else stays identical.
-
-If you want a plain-text fallback link, keep this format nearby:
-
-```text
-▶ FlowGuard PoC Demo: https://youtu.be/YOUR_VIDEO_ID
-```
 
 ## Layer 1 — Capability Hypergraphs (`CapHypergraph.lean`)
 
