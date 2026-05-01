@@ -400,4 +400,39 @@ theorem medicalPipeline_hopwise_unsafe :
 theorem safePipelineIFC_hopwise_safe :
     isHopwiseSafe safePipelineIFC = true := by decide
 
+/-! ## Universal characterisation of `isTransitivelySafe` blindness -/
+
+/-- UNIVERSAL ENDPOINT-BLINDNESS THEOREM
+
+    For ANY pipeline whose source flows securely to its sink endpoint,
+    `isTransitivelySafe` will report SAFE — regardless of what the
+    intermediate hops do.
+
+    This is the universal form of `transitive_safety_misses_intermediate`:
+    not just "there exists a bad pipeline that passes", but "ANY pipeline
+    with a good src→dst pair passes, even with arbitrary intermediate chaos". -/
+theorem isTransitivelySafe_only_checks_endpoints :
+    ∀ (channels : List Channel) (src dst : DataLabel),
+      pipelineSourceLabel channels = some src →
+      pipelineSinkLabel channels = some dst →
+      secureFlow src dst = true →
+      isTransitivelySafe channels = true := by
+  intro channels src dst hsrc hdst hflow
+  simp [isTransitivelySafe, hsrc, hdst, hflow]
+
+/-- COROLLARY: `isHopwiseSafe` is the only check that can catch
+    intermediate violations. If a pipeline fails `isHopwiseSafe`,
+    no endpoint check can detect it. -/
+theorem hopwise_is_necessary_for_intermediate_safety :
+    ∀ (channels : List Channel),
+      (∃ ch ∈ channels, secureFlow ch.src ch.dst = false) →
+      isHopwiseSafe channels = false := by
+  intro channels ⟨ch, hmem, hunsafe⟩
+  unfold isHopwiseSafe channelSecure
+  cases h : channels.all (fun c => secureFlow c.src c.dst)
+  · rfl
+  · exfalso
+    have := List.all_eq_true.mp h ch hmem
+    simp [hunsafe] at this
+
 end FlowGuard
