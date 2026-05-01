@@ -571,4 +571,29 @@ theorem coalition_unsafe_from_dangerous_pair
   simp only [isCapSafe, emergent, beq_eq_false_iff_ne, ne_eq]
   exact Nat.pos_iff_ne_zero.mp hpos
 
+/-- THE UNIVERSAL COALITION NON-COMPOSITIONALITY THEOREM
+    (∀-quantified form of `coalition_unsafe_from_dangerous_pair`)
+
+    For ANY edge set, ANY agent list, and ANY two members satisfying
+    the structural premises, individual safety does not survive
+    coalition composition.
+
+    This upgrades `coalition_unsafe_from_dangerous_pair` from a named
+    lemma to the canonical universally-quantified statement suitable
+    for citation. The proof is a direct wrapper. -/
+theorem coalition_nonCompositionality_universal :
+    ∀ (edges : List HyperEdge) (agents : List Agent) (a b : Agent),
+      a ∈ agents →
+      b ∈ agents →
+      isCapSafe edges a = true →
+      isCapSafe edges b = true →
+      (∃ e ∈ edges,
+          ¬ (e.premises ⊆ a.base) ∧
+          ¬ (e.premises ⊆ b.base) ∧
+          e.premises ⊆ a.base ∪ b.base ∧
+          e.conclusion ∈ a.forbidden ∪ b.forbidden) →
+      isCapSafe edges (composeList agents) = false :=
+  fun edges agents a b ha hb haSafe hbSafe hp =>
+    coalition_unsafe_from_dangerous_pair edges agents a b ha hb haSafe hbSafe hp
+
 end FlowGuard

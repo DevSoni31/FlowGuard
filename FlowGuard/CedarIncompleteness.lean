@@ -71,21 +71,12 @@ theorem cedar_request_determines_decision
     Reflexivity here expresses that Cedar's output is determined by the request
     alone, not by any capability set — a fact enforced by the type
     `CedarPolicy := CedarRequest → CedarDecision`. -/
-theorem cedar_blind_to_capsets
-    (p : CedarPolicy)
-    (a₁ a₂ : Agent)
-    (_ : a₁.name = a₂.name) :
-    -- Cedar is decision-identical for all requests: its type cannot
-    -- encode capability-set differences, so rfl is the only possible proof.
-    (∀ (req : CedarRequest),
-      req.principal.name = a₁.name →
-      cedarEval p req = cedarEval p req) ∧
-    -- FlowGuard, by contrast, separates them concretely:
-    isCapSafe demoEdges webAgent = true ∧
-    isCapSafe demoEdges (compose webAgent execAgent) = false ∧
-    Cap.exfilData ∉ capClosure demoEdges webAgent.base ∧
-    Cap.exfilData ∈ capClosure demoEdges (compose webAgent execAgent).base := by
-  exact ⟨fun _ _ => rfl, by decide, by decide, by decide, by decide⟩
+theorem cedar_blind_to_capsets (p : CedarPolicy) (a₁ a₂ : Agent)
+    (hname : a₁.name = a₂.name) (req : CedarRequest)
+    (hprincipal : req.principal.name = a₁.name) :
+    cedarEval p { req with principal := { name := a₁.name } } =
+    cedarEval p { req with principal := { name := a₂.name } } := by
+  rw [hname]
 
 /-- THE CAPABILITY-CEDAR SEPARATION THEOREM
     For any Cedar policy, FlowGuard's safety verdict is strictly more
