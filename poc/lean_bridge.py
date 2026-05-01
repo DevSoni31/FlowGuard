@@ -19,28 +19,57 @@ LEAN_DIR   = REPO_ROOT / "FlowGuard"                  # FlowGuard/FlowGuard/
 LEAN_FILES = list(LEAN_DIR.glob("*.lean"))
 
 # ── 1. Build ──────────────────────────────────────────────────────────────────
-def run_lake_build(timeout: int = 120) -> dict:
+def run_lake_build(timeout: int = 1800) -> dict:
     """
-    Runs `lake build` in the repo root.
-    Returns {"success": bool, "output": str, "errors": list[str]}
+    Runs `lake build` with live streaming output.
+    timeout=1800 = 30 minutes, covers worst-case cold builds.
+    Shows [N/M] progress lines as they appear, exactly like the terminal does.
     """
+    import sys
     try:
-        result = subprocess.run(
+        proc = subprocess.Popen(
             ["lake", "build"],
             cwd=REPO_ROOT,
-            capture_output=True, text=True, timeout=timeout
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,   # merge stderr into stdout for unified stream
+            text=True,
+            bufsize=1,
         )
-        success = result.returncode == 0
-        errors  = [l for l in result.stderr.splitlines() if "error:" in l.lower()]
+
+        all_output = []
+        errors     = []
+
+        import time
+        start = time.time()
+
+        for line in proc.stdout:
+            line_stripped = line.rstrip()
+            all_output.append(line_stripped)
+
+            # Print progress live — [N/M] lines, errors, warnings
+            if any(marker in line_stripped for marker in ["[", "error:", "warning:", "Build completed", "✓", "✗"]):
+                print(f"  {line_stripped}", flush=True)
+
+            if "error:" in line_stripped.lower():
+                errors.append(line_stripped)
+
+            # Manual timeout guard
+            if time.time() - start > timeout:
+                proc.kill()
+                return {"success": False, "output": "\n".join(all_output),
+                        "errors": ["lake build exceeded timeout — run `lake build` manually first"]}
+
+        proc.wait()
+        success = proc.returncode == 0
         return {
             "success": success,
-            "output":  result.stdout + result.stderr,
+            "output":  "\n".join(all_output),
             "errors":  errors,
         }
+
     except FileNotFoundError:
-        return {"success": False, "output": "", "errors": ["lake not found — is Lean 4 installed?"]}
-    except subprocess.TimeoutExpired:
-        return {"success": False, "output": "", "errors": ["lake build timed out"]}
+        return {"success": False, "output": "",
+                "errors": ["lake not found — is Lean 4 installed? Use --skip-lean to bypass."]}
 
 # ── 2. Evaluate a Lean expression ─────────────────────────────────────────────
 def eval_lean_expr(expression: str, imports: str = "import FlowGuard.CapHypergraph") -> dict:

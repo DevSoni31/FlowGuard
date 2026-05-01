@@ -2,3 +2,8 @@
 .lake/
 /.lake
 .env
+
+# Python virtual environment
+.venv/
+venv/
+ENV/

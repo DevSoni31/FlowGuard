@@ -101,25 +101,56 @@ def print_ifc_panel(result: dict):
         console.print("\n  [yellow]⚠ WARNING:[/] Endpoint check passed but an intermediate hop violates the lattice.")
         console.print("  [dim]Theorem: transitive_safety_misses_intermediate (InfoFlow.lean)[/]")
 
-def print_theorems(result: dict):
+def print_theorems(result: dict, all_theorems: dict = None):
     if not result["theorems_cited"]:
         return
-    console.rule("[bold cyan]Theorems Cited (FlowGuard.lean)[/]")
+    console.rule("[bold cyan]Theorems Cited — read from FlowGuard/*.lean[/]")
     for t in result["theorems_cited"]:
         console.print(f"\n  [bold cyan]{t['name']}[/]  [dim]{t['file']}[/]")
-        console.print(f"  [dim italic]{t['statement']}[/]")
-        console.print(f"  → {t['english']}")
 
-def launch_dashboard(result: dict, specs: list):
+        # Try to find the real theorem text from the parsed .lean file
+        real_stmt = None
+        if all_theorems:
+            file_theorems = all_theorems.get(t["file"], [])
+            match = next((th for th in file_theorems if th["name"] == t["name"]), None)
+            if match:
+                real_stmt = match["statement"]
+                if match.get("docstring"):
+                    console.print(f"  [dim]doc: {match['docstring'][:120]}[/]")
+
+        stmt = real_stmt or t["statement"]
+        console.print(f"  [dim italic]{stmt[:200]}[/]")
+        console.print(f"  → {t['english']}")
+        if real_stmt:
+            console.print(f"  [dim green]  ↑ text read directly from {t['file']}[/]")
+
+def print_lean_verification(lean_checks: list):
+    if not lean_checks:
+        return
+    console.rule("[bold green]Lean Kernel Verification — verify_demo_in_lean()[/]")
+    for check in lean_checks:
+        if check.get("lean_success") is False and "not found" in check.get("value", ""):
+            badge = "[dim]─ skipped[/]"
+        elif check.get("passed"):
+            badge = "[bold green]✓[/]"
+        else:
+            badge = "[bold red]✗[/]"
+        console.print(f"  {badge}  [bold]{check['label']}[/]")
+        console.print(f"       theorem:  [cyan]{check['theorem']}[/]")
+        if check.get("value"):
+            console.print(f"       lean out: [dim]{check['value'][:120]}[/]")
+
+def launch_dashboard(result: dict, specs: list, lean_checks: list = None, all_theorems: dict = None):
     """Write result.json and open the browser dashboard."""
     output = {
-        "result": result,
-        "specs":  [{"name": s["agent"].name, "filepath": s["filepath"],
-                    "method": s["method"], "description": s["description"]} for s in specs]
+        "result":       result,
+        "specs":        [{"name": s["agent"].name, "filepath": s["filepath"],
+                          "method": s["method"], "description": s["description"]} for s in specs],
+        "lean_checks":  lean_checks or [],
+        "all_theorems": all_theorems or {},
     }
     Path("result.json").write_text(json.dumps(output, indent=2))
 
-    # Start Flask server
     import server as srv
     t = threading.Thread(target=srv.run, daemon=True)
     t.start()
@@ -134,21 +165,26 @@ def launch_dashboard(result: dict, specs: list):
         pass
 
 def main():
-    console.print("\n[dim]Running lake build on FlowGuard repo...[/]")
-    build = run_lake_build()
-    if build["success"]:
-        console.print("[green]✓ lake build passed — Lean kernel verified all proofs[/]")
-    else:
-        console.print(f"[yellow]⚠ lake build errors: {build['errors']}[/]")
-
-    lean_checks = verify_demo_in_lean()   # real Lean output for the dashboard
-    all_theorems = get_all_theorems()     # real theorem list from your .lean files
+    # argparse MUST be first — before any side effects
     parser = argparse.ArgumentParser(description="FlowGuard PoC — Code → Spec → Verify")
     parser.add_argument("files", nargs="*", help="Python agent files to analyse")
     parser.add_argument("--demo",         action="store_true", help="Run canonical webAgent + execAgent demo")
     parser.add_argument("--medical-demo", action="store_true", help="Run medical pipeline IFC demo")
     parser.add_argument("--no-dashboard", action="store_true", help="Terminal output only")
+    parser.add_argument("--skip-lean",    action="store_true", help="Skip lake build (faster, for demo without Lean installed)")
+    parser.add_argument("--mode", choices=["ast", "llm", "both"], default=None, help="Extraction mode: ast (offline), llm (Gemini), both (merge). If omitted, asks interactively.")
     args = parser.parse_args()
+
+    # Interactive mode selection if not passed as flag
+    extraction_mode = args.mode
+    if extraction_mode is None:
+        console.print("\n[bold cyan]Extraction mode[/]")
+        console.print("  [1] ast   — regex + filename heuristics (offline, fast)")
+        console.print("  [2] llm   — Gemini 2.0 Flash (requires GEMINI_API_KEY)")
+        console.print("  [3] both  — AST first, LLM refines, results merged (recommended)")
+        choice = input("\n  Choose [1/2/3] (default 1): ").strip() or "1"
+        extraction_mode = {"1": "ast", "2": "llm", "3": "both"}.get(choice, "ast")
+        console.print(f"  → Using mode: [bold]{extraction_mode}[/]\n")
 
     files = args.files
     if args.demo:          files = DEMO_AGENTS
@@ -159,12 +195,29 @@ def main():
 
     print_banner()
 
+    # Lean build (skippable if Lean not installed locally)
+    lean_checks  = []
+    all_theorems = {}
+    if not args.skip_lean:
+        console.print("\n[dim]Running lake build on FlowGuard repo...[/]")
+        build = run_lake_build()
+        if build["success"]:
+            console.print("[green]✓ lake build passed — Lean kernel verified all proofs[/]")
+        else:
+            console.print(f"[yellow]⚠ lake build: {build['errors'] or 'not found — run with --skip-lean to bypass'}[/]")
+        lean_checks  = verify_demo_in_lean()
+        print_lean_verification(lean_checks)
+        all_theorems = get_all_theorems()
+    else:
+        console.print("[yellow]⚠ Skipping lake build (--skip-lean)[/]")
+        all_theorems = get_all_theorems()   # still reads .lean files; no subprocess needed
+
     # Phase 1: Extract
     console.print("\n[dim]Extracting capability specs...[/]")
     specs = []
     for f in files:
         try:
-            specs.append(extract_spec(f))
+            specs.append(extract_spec(f, mode=extraction_mode))
         except FileNotFoundError as e:
             console.print(f"[red]Error:[/] {e}")
             sys.exit(1)
@@ -179,11 +232,11 @@ def main():
     print_composition_result(result)
     print_cedar_panel(result)
     print_ifc_panel(result)
-    print_theorems(result)
+    print_theorems(result, all_theorems)
 
     # Launch dashboard
     if not args.no_dashboard:
-        launch_dashboard(result, specs)
+        launch_dashboard(result, specs, lean_checks, all_theorems)
 
 if __name__ == "__main__":
     main()
