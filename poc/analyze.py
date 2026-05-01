@@ -51,6 +51,14 @@ def print_individual_checks(result: dict):
         badge = "[bold green]✓ SAFE[/]" if ag["safe"] else "[bold red]✗ UNSAFE[/]"
         console.print(f"\n  {badge}  [bold]{ag['name']}[/]")
         console.print(f"    emergent caps: [cyan]{ag['emergent']}[/]")
+        if not ag["safe"]:
+            console.print(
+                f"    [bold yellow]⚠  This agent is unsafe IN ISOLATION — before any composition.[/]\n"
+                f"    [dim]The Lean-proven minimal counterexample requires two individually-safe agents.[/]\n"
+                f"    [dim]This real-world agent is a strictly worse case: emergence fires with a single agent.[/]\n"
+                f"    [dim]Theorem: nonCompositionality_universal (CapHypergraph.lean) still applies —[/]\n"
+                f"    [dim]the universal theorem covers this as the degenerate single-agent case.[/]"
+            )
 
 def print_composition_result(result: dict):
     console.rule("[bold blue][3/3] Composition — FlowGuard Verdict[/]")
@@ -119,7 +127,7 @@ def print_theorems(result: dict, all_theorems: dict = None):
                     console.print(f"  [dim]doc: {match['docstring'][:120]}[/]")
 
         stmt = real_stmt or t["statement"]
-        console.print(f"  [dim italic]{stmt[:200]}[/]")
+        console.print(f"  [dim italic]{stmt[:400]}[/]")
         console.print(f"  → {t['english']}")
         if real_stmt:
             console.print(f"  [dim green]  ↑ text read directly from {t['file']}[/]")
@@ -138,7 +146,8 @@ def print_lean_verification(lean_checks: list):
         console.print(f"  {badge}  [bold]{check['label']}[/]")
         console.print(f"       theorem:  [cyan]{check['theorem']}[/]")
         if check.get("value"):
-            console.print(f"       lean out: [dim]{check['value'][:120]}[/]")
+            lean_out = check['value'].replace("FlowGuard.", "")
+            console.print(f"       lean out: [dim]{lean_out[:120]}[/]")
 
 def launch_dashboard(result: dict, specs: list, lean_checks: list = None, all_theorems: dict = None):
     """Write result.json and open the browser dashboard."""
