@@ -464,4 +464,111 @@ theorem compose_forbidden_union_justified
   rw [hEmpty] at hInter
   simp at hInter
 
+/-! ## Session 7 — Coalition Safety -/
+
+def composeList (agents : List Agent) : Agent :=
+  agents.foldl compose
+    { name := "∅", base := (∅ : Finset Cap), forbidden := (∅ : Finset Cap) }
+
+def coalitionEmergent (edges : List HyperEdge) (agents : List Agent) : Finset Cap :=
+  emergent edges (composeList agents)
+
+private lemma composeList_base_grows (agents : List Agent) (acc : Agent) :
+    acc.base ⊆ (agents.foldl compose acc).base := by
+  induction agents generalizing acc with
+  | nil => simp
+  | cons hd tl ih =>
+    simp only [List.foldl_cons, compose]
+    exact Finset.subset_union_left.trans
+      (ih { name := _, base := acc.base ∪ hd.base, forbidden := acc.forbidden ∪ hd.forbidden })
+
+private lemma composeList_forbidden_grows (agents : List Agent) (acc : Agent) :
+    acc.forbidden ⊆ (agents.foldl compose acc).forbidden := by
+  induction agents generalizing acc with
+  | nil => simp
+  | cons hd tl ih =>
+    simp only [List.foldl_cons, compose]
+    exact Finset.subset_union_left.trans
+      (ih { name := _, base := acc.base ∪ hd.base, forbidden := acc.forbidden ∪ hd.forbidden })
+
+private lemma member_base_subset_foldl (agents : List Agent) (a : Agent)
+    (ha : a ∈ agents) (acc : Agent) :
+    a.base ⊆ (agents.foldl compose acc).base := by
+  induction agents generalizing acc with
+  | nil => simp at ha
+  | cons hd tl ih =>
+    simp only [List.mem_cons] at ha
+    simp only [List.foldl_cons, compose]
+    rcases ha with rfl | hmem
+    · exact Finset.subset_union_right.trans
+        (composeList_base_grows tl
+          { name := _, base := acc.base ∪ a.base, forbidden := acc.forbidden ∪ a.forbidden })
+    · exact ih hmem
+        { name := _, base := acc.base ∪ hd.base, forbidden := acc.forbidden ∪ hd.forbidden }
+
+private lemma member_forbidden_subset_foldl (agents : List Agent) (a : Agent)
+    (ha : a ∈ agents) (acc : Agent) :
+    a.forbidden ⊆ (agents.foldl compose acc).forbidden := by
+  induction agents generalizing acc with
+  | nil => simp at ha
+  | cons hd tl ih =>
+    simp only [List.mem_cons] at ha
+    simp only [List.foldl_cons, compose]
+    rcases ha with rfl | hmem
+    · exact Finset.subset_union_right.trans
+        (composeList_forbidden_grows tl
+          { name := _, base := acc.base ∪ a.base, forbidden := acc.forbidden ∪ a.forbidden })
+    · exact ih hmem
+        { name := _, base := acc.base ∪ hd.base, forbidden := acc.forbidden ∪ hd.forbidden }
+
+theorem agent_base_subset_coalition (agents : List Agent) (a : Agent) (ha : a ∈ agents) :
+    a.base ⊆ (composeList agents).base :=
+  member_base_subset_foldl agents a ha _
+
+theorem agent_forbidden_subset_coalition (agents : List Agent) (a : Agent) (ha : a ∈ agents) :
+    a.forbidden ⊆ (composeList agents).forbidden :=
+  member_forbidden_subset_foldl agents a ha _
+
+theorem coalition_closure_dominates_individual
+    (edges : List HyperEdge) (agents : List Agent) (a : Agent) (ha : a ∈ agents) :
+    emergent edges a ⊆ coalitionEmergent edges agents :=
+  capClosure_mono edges (agent_base_subset_coalition agents a ha)
+
+theorem coalition_nonCompositionality :
+    (∀ a ∈ ([webAgent, execAgent] : List Agent), isCapSafe demoEdges a = true) ∧
+    isCapSafe demoEdges (composeList [webAgent, execAgent]) = false := by
+  refine ⟨fun a ha => ?_, by decide⟩
+  simp only [List.mem_cons, List.mem_nil_iff, or_false] at ha
+  rcases ha with rfl | rfl <;> rfl
+
+theorem coalition_unsafe_from_dangerous_pair
+    (edges : List HyperEdge) (agents : List Agent) (a b : Agent)
+    (ha : a ∈ agents) (hb : b ∈ agents)
+    (_haSafe : isCapSafe edges a = true)
+    (_hbSafe : isCapSafe edges b = true)
+    (hpair : ∃ e ∈ edges,
+        ¬ (e.premises ⊆ a.base) ∧ ¬ (e.premises ⊆ b.base) ∧
+        e.premises ⊆ a.base ∪ b.base ∧
+        e.conclusion ∈ a.forbidden ∪ b.forbidden) :
+    isCapSafe edges (composeList agents) = false := by
+  obtain ⟨e, he_mem, _hna, _hnb, hprem, hforbid⟩ := hpair
+  have ha_sub := agent_base_subset_coalition agents a ha
+  have hb_sub := agent_base_subset_coalition agents b hb
+  have hprem_coal : e.premises ⊆ (composeList agents).base :=
+    hprem.trans (Finset.union_subset ha_sub hb_sub)
+  have hconc_forbidden : e.conclusion ∈ (composeList agents).forbidden :=
+    (Finset.mem_union.mp hforbid).elim
+      (fun h => agent_forbidden_subset_coalition agents a ha h)
+      (fun h => agent_forbidden_subset_coalition agents b hb h)
+  have hprem_closure : e.premises ⊆ capClosure edges (composeList agents).base :=
+    hprem_coal.trans (capClosure_extensive edges _)
+  have hconc_step := step_conclusion_mem e edges _ he_mem hprem_closure
+  rw [capClosure_is_fixpoint] at hconc_step
+  have hmem_inter : e.conclusion ∈
+      capClosure edges (composeList agents).base ∩ (composeList agents).forbidden :=
+    Finset.mem_inter.mpr ⟨hconc_step, hconc_forbidden⟩
+  have hpos := Finset.card_pos.mpr ⟨e.conclusion, hmem_inter⟩
+  simp only [isCapSafe, emergent, beq_eq_false_iff_ne, ne_eq]
+  exact Nat.pos_iff_ne_zero.mp hpos
+
 end FlowGuard
