@@ -1,0 +1,1003 @@
+{
+  "result": {
+    "individual": [
+      {
+        "name": "web-search-agent",
+        "base": [
+          "webSearch"
+        ],
+        "forbidden": [
+          "codeExec",
+          "dataLeak",
+          "databaseQuery",
+          "emailSend",
+          "exfilData",
+          "networkAccess",
+          "privEsc",
+          "remoteExec",
+          "shellExec"
+        ],
+        "emergent": [
+          "webSearch"
+        ],
+        "safe": true,
+        "theorem": "webAgent_is_safe / execAgent_is_safe (CapHypergraph.lean)",
+        "method": "ast",
+        "filepath": "sample_agents/web_search_agent.py"
+      },
+      {
+        "name": "code-exec-agent",
+        "base": [
+          "codeExec",
+          "networkAccess",
+          "shellExec",
+          "webSearch"
+        ],
+        "forbidden": [
+          "dataLeak",
+          "databaseQuery",
+          "emailSend",
+          "exfilData",
+          "privEsc",
+          "remoteExec"
+        ],
+        "emergent": [
+          "codeExec",
+          "exfilData",
+          "networkAccess",
+          "remoteExec",
+          "shellExec",
+          "webSearch"
+        ],
+        "safe": false,
+        "theorem": "webAgent_is_safe / execAgent_is_safe (CapHypergraph.lean)",
+        "method": "ast",
+        "filepath": "sample_agents/code_exec_agent.py"
+      }
+    ],
+    "composed": {
+      "name": "empty+web-search-agent+code-exec-agent",
+      "base": [
+        "codeExec",
+        "networkAccess",
+        "shellExec",
+        "webSearch"
+      ],
+      "forbidden": [
+        "codeExec",
+        "dataLeak",
+        "databaseQuery",
+        "emailSend",
+        "exfilData",
+        "networkAccess",
+        "privEsc",
+        "remoteExec",
+        "shellExec"
+      ],
+      "emergent": [
+        "codeExec",
+        "exfilData",
+        "networkAccess",
+        "remoteExec",
+        "shellExec",
+        "webSearch"
+      ],
+      "safe": false
+    },
+    "fired_edges": [
+      {
+        "label": "webSearch \u2227 codeExec \u2192 exfilData",
+        "premises": [
+          "codeExec",
+          "webSearch"
+        ],
+        "conclusion": "exfilData"
+      },
+      {
+        "label": "codeExec \u2227 networkAccess \u2192 remoteExec",
+        "premises": [
+          "codeExec",
+          "networkAccess"
+        ],
+        "conclusion": "remoteExec"
+      }
+    ],
+    "cedar": {
+      "checks": [
+        {
+          "principal": "web-search-agent",
+          "action": "codeExec",
+          "decision": "allow"
+        },
+        {
+          "principal": "code-exec-agent",
+          "action": "codeExec",
+          "decision": "allow"
+        },
+        {
+          "principal": "web-search-agent",
+          "action": "dataLeak",
+          "decision": "deny"
+        },
+        {
+          "principal": "code-exec-agent",
+          "action": "dataLeak",
+          "decision": "deny"
+        },
+        {
+          "principal": "web-search-agent",
+          "action": "databaseQuery",
+          "decision": "deny"
+        },
+        {
+          "principal": "code-exec-agent",
+          "action": "databaseQuery",
+          "decision": "deny"
+        },
+        {
+          "principal": "web-search-agent",
+          "action": "emailSend",
+          "decision": "deny"
+        },
+        {
+          "principal": "code-exec-agent",
+          "action": "emailSend",
+          "decision": "deny"
+        },
+        {
+          "principal": "web-search-agent",
+          "action": "exfilData",
+          "decision": "deny"
+        },
+        {
+          "principal": "code-exec-agent",
+          "action": "exfilData",
+          "decision": "deny"
+        },
+        {
+          "principal": "web-search-agent",
+          "action": "networkAccess",
+          "decision": "allow"
+        },
+        {
+          "principal": "code-exec-agent",
+          "action": "networkAccess",
+          "decision": "allow"
+        },
+        {
+          "principal": "web-search-agent",
+          "action": "privEsc",
+          "decision": "deny"
+        },
+        {
+          "principal": "code-exec-agent",
+          "action": "privEsc",
+          "decision": "deny"
+        },
+        {
+          "principal": "web-search-agent",
+          "action": "remoteExec",
+          "decision": "deny"
+        },
+        {
+          "principal": "code-exec-agent",
+          "action": "remoteExec",
+          "decision": "deny"
+        },
+        {
+          "principal": "web-search-agent",
+          "action": "shellExec",
+          "decision": "allow"
+        },
+        {
+          "principal": "code-exec-agent",
+          "action": "shellExec",
+          "decision": "allow"
+        }
+      ],
+      "denies_all": false,
+      "blind_spot": false,
+      "explanation": "Cedar evaluates each (principal, action) request in isolation. It cannot detect capability emergence from agent composition. This is not a Cedar bug \u2014 it is a structural limitation of the per-request policy paradigm. See: CedarBridge.lean, theorem cedar_nonCompositionality_gap."
+    },
+    "ifc": {
+      "channels": [],
+      "transitive_safe": null,
+      "hopwise_safe": null
+    },
+    "theorems_cited": [
+      {
+        "name": "nonCompositionality_universal",
+        "file": "CapHypergraph.lean",
+        "statement": "\u2200 edges a b, isCapSafe edges a = true \u2192 isCapSafe edges b = true \u2192 (\u2203 e \u2208 edges, \u2026) \u2192 isCapSafe edges (compose a b) = false",
+        "english": "For any agents and hyperedges satisfying the structural premises, individual safety does not survive composition."
+      }
+    ],
+    "verdict": "UNSAFE"
+  },
+  "specs": [
+    {
+      "name": "web-search-agent",
+      "filepath": "sample_agents/web_search_agent.py",
+      "method": "ast",
+      "description": "Extracted from web_search_agent.py via AST analysis"
+    },
+    {
+      "name": "code-exec-agent",
+      "filepath": "sample_agents/code_exec_agent.py",
+      "method": "ast",
+      "description": "Extracted from code_exec_agent.py via AST analysis"
+    }
+  ],
+  "lean_checks": [],
+  "all_theorems": {
+    "AgentProgram.lean": [
+      {
+        "name": "bindSafe",
+        "statement": "(contract : Agent) (x : Prog \u03b1) (f : \u03b1 \u2192 Prog \u03b2) (hx : SafeProg contract x) (hf : \u2200 a, SafeProg contract (f a)) : SafeProg contract (x.bind f)",
+        "docstring": "",
+        "file": "AgentProgram.lean",
+        "line": 93
+      },
+      {
+        "name": "searchProg_safe",
+        "statement": ": SafeProg webAgent searchProg",
+        "docstring": "An unsafe program: searches then exfiltrates the result",
+        "file": "AgentProgram.lean",
+        "line": 117
+      },
+      {
+        "name": "exfilProg_unsafe",
+        "statement": ": \u00ac SafeProg webAgent exfilProg",
+        "docstring": "The exfil program is unsafe: exfilData is forbidden for webAgent",
+        "file": "AgentProgram.lean",
+        "line": 125
+      },
+      {
+        "name": "safeProg_caps_in_base",
+        "statement": "(contract : Agent) (e : AgentEffect \u03b2) (k : \u03b2 \u2192 Prog \u03b1) (h : SafeProg contract (.step e k)) : effectCap e \u2208 contract.base \u2227 effectCap e \u2209 contract.forbidden",
+        "docstring": "STEP-LEVEL SOUNDNESS: every effect in a SafeProg-safe program\n    uses only capabilities that are in the contract's base and\n    not in the contract's forbidden set.\n\n    This is the key per-step guarantee: SafeProg checks exactly this\n    at every node of the program tree.",
+        "file": "AgentProgram.lean",
+        "line": 162
+      },
+      {
+        "name": "safeProg_base_forbidden_disjoint",
+        "statement": "(contract : Agent) (e : AgentEffect \u03b2) (k : \u03b2 \u2192 Prog \u03b1) (h : SafeProg contract (.step e k)) : effectCap e \u2208 contract.base \\ contract.forbidden",
+        "docstring": "",
+        "file": "AgentProgram.lean",
+        "line": 177
+      },
+      {
+        "name": "safeProg_implies_capSafe_empty_edges",
+        "statement": "(contract : Agent) (prog : Prog \u03b1) (_hSafe : SafeProg contract prog) (hDisjoint : contract.base \u2229 contract.forbidden = \u2205) : isCapSafe [] contract = true",
+        "docstring": "",
+        "file": "AgentProgram.lean",
+        "line": 199
+      },
+      {
+        "name": "safeProg_does_not_imply_capSafe",
+        "statement": ": -- A program can be SafeProg-safe: SafeProg webAgent searchProg \u2227 -- While a related contract is declaratively unsafe: isCapSafe demoEdges (compose webAgent execAgent) = false \u2227 -- And the individual agent is safe under its own contract: isCapSafe demoEdges webAgent = true",
+        "docstring": "",
+        "file": "AgentProgram.lean",
+        "line": 222
+      },
+      {
+        "name": "safeProg_continuation_safe",
+        "statement": "(contract : Agent) (e : AgentEffect \u03b2) (k : \u03b2 \u2192 Prog \u03b1) (h : SafeProg contract (.step e k)) : \u2200 b, SafeProg contract (k b)",
+        "docstring": "CONTINUATION SAFETY: every continuation of a SafeProg-safe step\n    is itself SafeProg-safe. This is the inductive structure of\n    SafeProg made explicit \u2014 safety is preserved through all\n    execution paths.",
+        "file": "AgentProgram.lean",
+        "line": 235
+      },
+      {
+        "name": "safeProg_bind_compositional",
+        "statement": "(contract : Agent) (x : Prog \u03b1) (f : \u03b1 \u2192 Prog \u03b2) (hx : SafeProg contract x) (hf : \u2200 a, SafeProg contract (f a)) : SafeProg contract (x.bind f)",
+        "docstring": "",
+        "file": "AgentProgram.lean",
+        "line": 249
+      }
+    ],
+    "Basic.lean": [],
+    "CapHypergraph.lean": [
+      {
+        "name": "step_mono",
+        "statement": "(edges : List HyperEdge) {S T : Finset Cap} (h : S \u2286 T) : step edges S \u2286 step edges T",
+        "docstring": "`step` is monotone: S \u2286 T \u2192 step edges S \u2286 step edges T",
+        "file": "CapHypergraph.lean",
+        "line": 59
+      },
+      {
+        "name": "closureAux_mono",
+        "statement": "(n : Nat) (edges : List HyperEdge) {S T : Finset Cap} (h : S \u2286 T) : closureAux n edges S \u2286 closureAux n edges T",
+        "docstring": "`closureAux` is monotone in its Finset argument.",
+        "file": "CapHypergraph.lean",
+        "line": 80
+      },
+      {
+        "name": "capClosure_mono",
+        "statement": "(edges : List HyperEdge) {S T : Finset Cap} (h : S \u2286 T) : capClosure edges S \u2286 capClosure edges T",
+        "docstring": "The closure operator is monotone:\n    a larger base set always yields a larger emergent set.",
+        "file": "CapHypergraph.lean",
+        "line": 88
+      },
+      {
+        "name": "capClosure_extensive",
+        "statement": "(edges : List HyperEdge) (S : Finset Cap) : S \u2286 capClosure edges S",
+        "docstring": "The closure is extensive: every base capability survives into the closure.",
+        "file": "CapHypergraph.lean",
+        "line": 93
+      },
+      {
+        "name": "closureAux_empty",
+        "statement": "(n : Nat) (S : Finset Cap) : closureAux n [] S = S",
+        "docstring": "With no hyperedges, `step` is the identity.",
+        "file": "CapHypergraph.lean",
+        "line": 109
+      },
+      {
+        "name": "capClosure_empty",
+        "statement": "(S : Finset Cap) : capClosure [] S = S",
+        "docstring": "With no hyperedges, `capClosure` is the identity:\n    no capability emergence is possible without hyperedges.",
+        "file": "CapHypergraph.lean",
+        "line": 118
+      },
+      {
+        "name": "closureAux_step_subset",
+        "statement": "(n : Nat) (edges : List HyperEdge) (S : Finset Cap) : closureAux n edges S \u2286 closureAux (n + 1) edges S",
+        "docstring": "`closureAux` is non-decreasing in its iteration count:\n    one more application of `step` always yields a superset.",
+        "file": "CapHypergraph.lean",
+        "line": 125
+      },
+      {
+        "name": "capClosure_is_fixpoint",
+        "statement": "(edges : List HyperEdge) (S : Finset Cap) : step edges (capClosure edges S) = capClosure edges S",
+        "docstring": "`capClosure` is an absolute fixed point under `step`.",
+        "file": "CapHypergraph.lean",
+        "line": 221
+      },
+      {
+        "name": "capClosure_is_least_fixpoint",
+        "statement": "(edges : List HyperEdge) (S T : Finset Cap) (hS : S \u2286 T) (hfix : step edges T \u2286 T) : capClosure edges S \u2286 T",
+        "docstring": "`capClosure` is the LEAST closed superset of `S`:\n    any set T that contains S and is closed under all hyperedges\n    must contain the closure.\n    This is the minimal fixed-point property \u2014 `capClosure` is not merely\n    *a* closed superset, but the *smallest possible* one.",
+        "file": "CapHypergraph.lean",
+        "line": 235
+      },
+      {
+        "name": "webAgent_is_safe",
+        "statement": ": isCapSafe demoEdges webAgent = true",
+        "docstring": "",
+        "file": "CapHypergraph.lean",
+        "line": 289
+      },
+      {
+        "name": "execAgent_is_safe",
+        "statement": ": isCapSafe demoEdges execAgent = true",
+        "docstring": "",
+        "file": "CapHypergraph.lean",
+        "line": 292
+      },
+      {
+        "name": "composedTeam_is_unsafe",
+        "statement": ": isCapSafe demoEdges (compose webAgent execAgent) = false",
+        "docstring": "",
+        "file": "CapHypergraph.lean",
+        "line": 295
+      },
+      {
+        "name": "nonCompositionalityCounterexample",
+        "statement": ": isCapSafe demoEdges webAgent = true \u2227 isCapSafe demoEdges execAgent = true \u2227 isCapSafe demoEdges (compose webAgent execAgent) = false",
+        "docstring": "The headline theorem: both agents are individually safe,\n    yet their composition is unsafe \u2014 safety is non-compositional.",
+        "file": "CapHypergraph.lean",
+        "line": 300
+      },
+      {
+        "name": "nonCompositionality_exists",
+        "statement": ": \u2203 (edges : List HyperEdge) (a b : Agent), isCapSafe edges a = true \u2227 isCapSafe edges b = true \u2227 isCapSafe edges (compose a b) = false",
+        "docstring": "There *exist* agents and hyperedges such that individual safety\n    does not imply compositional safety.\n    This upgrades our counterexample from a verified instance to an\n    existential theorem \u2014 the correct research-paper-level statement.",
+        "file": "CapHypergraph.lean",
+        "line": 312
+      },
+      {
+        "name": "nonCompositionality_universal",
+        "statement": ": \u2200 (edges : List HyperEdge) (a b : Agent), isCapSafe edges a = true \u2192 isCapSafe edges b = true \u2192 (\u2203 e \u2208 edges, \u00ac (e.premises \u2286 a.base) \u2227 \u00ac (e.premises \u2286 b.base) \u2227 e.premises \u2286 a.base \u222a b.base \u2227 e.conclusion \u2208 a.forbidden \u222a b.forbidden) \u2192 isCapSafe edges (compose a b) = false",
+        "docstring": "",
+        "file": "CapHypergraph.lean",
+        "line": 371
+      },
+      {
+        "name": "safeRegion_downward_closed",
+        "statement": "(edges : List HyperEdge) (forbidden : Finset Cap) (A B : Finset Cap) (hSafe : (capClosure edges A \u2229 forbidden).card = 0) (hSub : B \u2286 A) : (capClosure edges B \u2229 forbidden).card = 0",
+        "docstring": "DOWNWARD CLOSURE: a smaller base capability set is always at least as safe.\n    If starting from A is safe, starting from any subset B \u2286 A is also safe.\n    This is because `capClosure` is monotone: fewer starting capabilities\n    can only produce fewer emergent capabilities.",
+        "file": "CapHypergraph.lean",
+        "line": 427
+      },
+      {
+        "name": "safeRegion_closed_under_intersection",
+        "statement": "(edges : List HyperEdge) (forbidden : Finset Cap) (A B : Finset Cap) (hA : (capClosure edges A \u2229 forbidden).card = 0) (_hB : (capClosure edges B \u2229 forbidden).card = 0) : (capClosure edges (A \u2229 B) \u2229 forbidden).card = 0",
+        "docstring": "",
+        "file": "CapHypergraph.lean",
+        "line": 444
+      },
+      {
+        "name": "compose_forbidden_union_justified",
+        "statement": "(edges : List HyperEdge) (a b : Agent) (h : isCapSafe edges (compose a b) = true) : \u2200 cap \u2208 a.forbidden \u222a b.forbidden, cap \u2209 capClosure edges (a.base \u222a b.base)",
+        "docstring": "",
+        "file": "CapHypergraph.lean",
+        "line": 452
+      },
+      {
+        "name": "agent_base_subset_coalition",
+        "statement": "(agents : List Agent) (a : Agent) (ha : a \u2208 agents) : a.base \u2286 (composeList agents).base",
+        "docstring": "",
+        "file": "CapHypergraph.lean",
+        "line": 523
+      },
+      {
+        "name": "agent_forbidden_subset_coalition",
+        "statement": "(agents : List Agent) (a : Agent) (ha : a \u2208 agents) : a.forbidden \u2286 (composeList agents).forbidden",
+        "docstring": "",
+        "file": "CapHypergraph.lean",
+        "line": 527
+      },
+      {
+        "name": "coalition_closure_dominates_individual",
+        "statement": "(edges : List HyperEdge) (agents : List Agent) (a : Agent) (ha : a \u2208 agents) : emergent edges a \u2286 coalitionEmergent edges agents",
+        "docstring": "",
+        "file": "CapHypergraph.lean",
+        "line": 531
+      },
+      {
+        "name": "coalition_nonCompositionality",
+        "statement": ": (\u2200 a \u2208 ([webAgent, execAgent] : List Agent), isCapSafe demoEdges a = true) \u2227 isCapSafe demoEdges (composeList [webAgent, execAgent]) = false",
+        "docstring": "",
+        "file": "CapHypergraph.lean",
+        "line": 536
+      },
+      {
+        "name": "coalition_unsafe_from_dangerous_pair",
+        "statement": "(edges : List HyperEdge) (agents : List Agent) (a b : Agent) (ha : a \u2208 agents) (hb : b \u2208 agents) (_haSafe : isCapSafe edges a = true) (_hbSafe : isCapSafe edges b = true) (hpair : \u2203 e \u2208 edges, \u00ac (e.premises \u2286 a.base) \u2227 \u00ac (e.premises \u2286 b.base) \u2227 e.premises \u2286 a.base \u222a b.base \u2227 e.conclusion \u2208 a.forbidd",
+        "docstring": "",
+        "file": "CapHypergraph.lean",
+        "line": 543
+      },
+      {
+        "name": "coalition_nonCompositionality_universal",
+        "statement": ": \u2200 (edges : List HyperEdge) (agents : List Agent) (a b : Agent), a \u2208 agents \u2192 b \u2208 agents \u2192 isCapSafe edges a = true \u2192 isCapSafe edges b = true \u2192 (\u2203 e \u2208 edges, \u00ac (e.premises \u2286 a.base) \u2227 \u00ac (e.premises \u2286 b.base) \u2227 e.premises \u2286 a.base \u222a b.base \u2227 e.conclusion \u2208 a.forbidden \u222a b.forbidden) \u2192 isCapSafe edg",
+        "docstring": "",
+        "file": "CapHypergraph.lean",
+        "line": 583
+      }
+    ],
+    "CedarBridge.lean": [
+      {
+        "name": "webPolicy_allows_webSearch",
+        "statement": ": cedarEval webPolicy { principal",
+        "docstring": "webPolicy allows webSearch for web-agent",
+        "file": "CedarBridge.lean",
+        "line": 116
+      },
+      {
+        "name": "webPolicy_denies_exfil",
+        "statement": ": cedarEval webPolicy { principal",
+        "docstring": "webPolicy denies exfilData for web-agent",
+        "file": "CedarBridge.lean",
+        "line": 124
+      },
+      {
+        "name": "execPolicy_denies_exfil",
+        "statement": ": cedarEval execPolicy { principal",
+        "docstring": "execPolicy denies exfilData for exec-agent",
+        "file": "CedarBridge.lean",
+        "line": 132
+      },
+      {
+        "name": "webPolicy_denies_exec_agent",
+        "statement": ": cedarEval webPolicy { principal",
+        "docstring": "webPolicy denies exec-agent's requests: policies are per-agent scoped",
+        "file": "CedarBridge.lean",
+        "line": 140
+      },
+      {
+        "name": "teamPolicy_denies_direct_exfil",
+        "statement": ": cedarEval teamPolicy { principal",
+        "docstring": "Cedar's team policy denies exfilData for both agents individually",
+        "file": "CedarBridge.lean",
+        "line": 169
+      },
+      {
+        "name": "cedar_nonCompositionality_gap",
+        "statement": ": (cedarEval teamPolicy { principal",
+        "docstring": "",
+        "file": "CedarBridge.lean",
+        "line": 188
+      },
+      {
+        "name": "medicalPolicy_approves_diagnostic",
+        "statement": ": cedarEval medicalPolicy { principal",
+        "docstring": "Cedar approves the diagnostic hop individually",
+        "file": "CedarBridge.lean",
+        "line": 224
+      },
+      {
+        "name": "medicalPolicy_approves_summary",
+        "statement": ": cedarEval medicalPolicy { principal",
+        "docstring": "Cedar approves the summary hop individually",
+        "file": "CedarBridge.lean",
+        "line": 232
+      },
+      {
+        "name": "cedar_ifc_gap",
+        "statement": ": (cedarEval medicalPolicy { principal",
+        "docstring": "THE INCOMPLETENESS THEOREM \u2014 IFC Gap:\n\n    Cedar approves both hops; FlowGuard proves the transitive flow is unsafe.\n\n    Cedar sees: diagnostic hop \u2713, summary hop \u2713\n    FlowGuard:  transitive High \u2192 Low violates noninterference \u2717",
+        "file": "CedarBridge.lean",
+        "line": 245
+      },
+      {
+        "name": "cedar_is_incomplete",
+        "statement": ": (isCapSafe demoEdges (compose webAgent execAgent) = false) \u2227 (isTransitivelySafe medicalPipeline = false)",
+        "docstring": "Cedar has two distinct structural blind spots, both machine-checked.",
+        "file": "CedarBridge.lean",
+        "line": 263
+      },
+      {
+        "name": "unionPolicy_denies_exfil",
+        "statement": ": cedarEval (unionPolicy [webPolicy, execPolicy]) { principal",
+        "docstring": "Even the union of all individual policies denies exfilData \u2014\n    because no individual policy ever permitted it.",
+        "file": "CedarBridge.lean",
+        "line": 290
+      },
+      {
+        "name": "policy_union_cannot_close_gap",
+        "statement": ": cedarEval (unionPolicy [webPolicy, execPolicy]) { principal",
+        "docstring": "",
+        "file": "CedarBridge.lean",
+        "line": 303
+      },
+      {
+        "name": "policy_union_gap_via_tactic",
+        "statement": ": cedarEval (unionPolicy [webPolicy, execPolicy]) { principal",
+        "docstring": "`policy_union_cannot_close_gap` re-proved using the tactic",
+        "file": "CedarBridge.lean",
+        "line": 341
+      },
+      {
+        "name": "cedar_incomplete_via_tactic",
+        "statement": ": isCapSafe demoEdges (compose webAgent execAgent) = false \u2227 isTransitivelySafe medicalPipeline = false",
+        "docstring": "`cedar_is_incomplete` re-proved using the tactic",
+        "file": "CedarBridge.lean",
+        "line": 350
+      }
+    ],
+    "CedarIncompleteness.lean": [
+      {
+        "name": "cedar_is_request_local",
+        "statement": "(p : CedarPolicy) (req : CedarRequest) : \u2203 (f : CedarRequest \u2192 CedarDecision), cedarEval p req = f req",
+        "docstring": "Cedar policies are purely request-local: the decision depends\n    only on the request, never on any external capability set.",
+        "file": "CedarIncompleteness.lean",
+        "line": 43
+      },
+      {
+        "name": "cedar_request_determines_decision",
+        "statement": "(p : CedarPolicy) (req\u2081 req\u2082 : CedarRequest) (hpr : req\u2081.principal = req\u2082.principal) (hact : req\u2081.action = req\u2082.action) (hres : req\u2081.resource = req\u2082.resource) : cedarEval p req\u2081 = cedarEval p req\u2082",
+        "docstring": "Two requests that agree on principal, action, and resource must\n    receive the same Cedar decision from any policy.",
+        "file": "CedarIncompleteness.lean",
+        "line": 49
+      },
+      {
+        "name": "cedar_blind_to_capsets",
+        "statement": "(p : CedarPolicy) (a\u2081 a\u2082 : Agent) (hname : a\u2081.name = a\u2082.name) (req : CedarRequest) (hprincipal : req.principal.name = a\u2081.name) : cedarEval p { req with principal",
+        "docstring": "",
+        "file": "CedarIncompleteness.lean",
+        "line": 73
+      },
+      {
+        "name": "cedar_capability_separation",
+        "statement": ": \u2200 (p : CedarPolicy), -- Cedar: same decision for all \"web-agent\" requests, regardless of composition (\u2200 (req : CedarRequest), req.principal.name = \"web-agent\" \u2192 cedarEval p req = cedarEval p req) \u2227 -- FlowGuard: the safety verdict differs between the two isCapSafe demoEdges webAgent \u2260 isCapSafe de",
+        "docstring": "",
+        "file": "CedarIncompleteness.lean",
+        "line": 89
+      },
+      {
+        "name": "cedar_same_decision_regardless_of_composition",
+        "statement": "(p : CedarPolicy) (h : cedarEval p { principal",
+        "docstring": "",
+        "file": "CedarIncompleteness.lean",
+        "line": 107
+      },
+      {
+        "name": "closure_union_ge_union_closures",
+        "statement": "(edges : List HyperEdge) (a b : Agent) : capClosure edges a.base \u222a capClosure edges b.base \u2286 capClosure edges (a.base \u222a b.base)",
+        "docstring": "The closure of the union is a superset of the union of closures.\n    This is the monotonicity of closure applied to composition:\n    joint information can only add capabilities, never remove them.",
+        "file": "CedarIncompleteness.lean",
+        "line": 134
+      },
+      {
+        "name": "joint_closure_strictly_larger",
+        "statement": ": Cap.exfilData \u2209 capClosure demoEdges webAgent.base \u2227 Cap.exfilData \u2209 capClosure demoEdges execAgent.base \u2227 Cap.exfilData \u2208 capClosure demoEdges (compose webAgent execAgent).base",
+        "docstring": "For the demo agents: the individual closures do NOT contain exfilData,\n    but the joint closure does. This is the information gap in one theorem.",
+        "file": "CedarIncompleteness.lean",
+        "line": 146
+      },
+      {
+        "name": "emergence_requires_joint_inspection",
+        "statement": ": \u00ac (Cap.exfilData \u2208 capClosure demoEdges webAgent.base) \u2227 \u00ac (Cap.exfilData \u2208 capClosure demoEdges execAgent.base) \u2227 (Cap.exfilData \u2208 capClosure demoEdges (webAgent.base \u222a execAgent.base))",
+        "docstring": "The emergent capability (exfilData) is present in the joint closure\n    but absent in either individual closure.\n    This is the *information gap*: you cannot detect the emergence\n    by inspecting agents one at a time.",
+        "file": "CedarIncompleteness.lean",
+        "line": 156
+      },
+      {
+        "name": "cedar_exfil_always_deny_for_webAgent",
+        "statement": "(p : CedarPolicy) (h : p { principal",
+        "docstring": "",
+        "file": "CedarIncompleteness.lean",
+        "line": 189
+      },
+      {
+        "name": "cedar_composed_principal_not_covered",
+        "statement": ": webPolicy { principal",
+        "docstring": "",
+        "file": "CedarIncompleteness.lean",
+        "line": 205
+      },
+      {
+        "name": "cedar_cannot_see_composition_holds_caps",
+        "statement": ": teamPolicy { principal",
+        "docstring": "",
+        "file": "CedarIncompleteness.lean",
+        "line": 222
+      },
+      {
+        "name": "cedar_deny_is_vacuous_for_composition",
+        "statement": ": -- Cedar denies exfil for the unsafe composed team teamPolicy { principal",
+        "docstring": "",
+        "file": "CedarIncompleteness.lean",
+        "line": 246
+      },
+      {
+        "name": "cedar_incomplete_universally",
+        "statement": "(edges : List HyperEdge) (a b : Agent) (ha : isCapSafe edges a = true) (hb : isCapSafe edges b = true) (hab : isCapSafe edges (compose a b) = false) : \u2203 (cap : Cap), cap \u2208 capClosure edges (a.base \u222a b.base) \u2227 cap \u2208 (a.forbidden \u222a b.forbidden) \u2227 (cap \u2209 capClosure edges a.base \u2228 cap \u2209 capClosure edges",
+        "docstring": "",
+        "file": "CedarIncompleteness.lean",
+        "line": 278
+      },
+      {
+        "name": "cedar_incomplete_universally_witnessed",
+        "statement": ": \u2203 (cap : Cap), cap \u2208 capClosure demoEdges (webAgent.base \u222a execAgent.base) \u2227 cap \u2208 (webAgent.forbidden \u222a execAgent.forbidden) \u2227 (cap \u2209 capClosure demoEdges webAgent.base \u2228 cap \u2209 capClosure demoEdges execAgent.base)",
+        "docstring": "Corollary: the specific emergent capability (exfilData) in our demo\n    is a concrete witness confirming the universal theorem above.",
+        "file": "CedarIncompleteness.lean",
+        "line": 314
+      },
+      {
+        "name": "cedar_structural_incompleteness",
+        "statement": ": -- Component 1: Information gap (Cap.exfilData \u2209 capClosure demoEdges webAgent.base \u2227 Cap.exfilData \u2209 capClosure demoEdges execAgent.base \u2227 Cap.exfilData \u2208 capClosure demoEdges (compose webAgent execAgent).base) \u2227 -- Component 2: Vacuous denial (teamPolicy { principal",
+        "docstring": "",
+        "file": "CedarIncompleteness.lean",
+        "line": 349
+      }
+    ],
+    "FlowCheck.lean": [
+      {
+        "name": "unsafePipelineCap_not_valid",
+        "statement": ": \u00ac (\u2200 a \u2208 unsafePipelineCap.agents, isCapSafe unsafePipelineCap.capEdges a = true)",
+        "docstring": "",
+        "file": "FlowCheck.lean",
+        "line": 47
+      },
+      {
+        "name": "unsafePipelineIFC_not_valid",
+        "statement": ": isTransitivelySafe unsafePipelineIFC.channels = false",
+        "docstring": "",
+        "file": "FlowCheck.lean",
+        "line": 61
+      },
+      {
+        "name": "flowguard_sound",
+        "statement": "(P : Pipeline) [h : ValidPipeline P] : (\u2200 a \u2208 P.agents, isCapSafe P.capEdges a = true) \u2227 isTransitivelySafe P.channels = true",
+        "docstring": "",
+        "file": "FlowCheck.lean",
+        "line": 94
+      },
+      {
+        "name": "trustedPipeline_certified",
+        "statement": ": (\u2200 a \u2208 trustedPipeline.agents, isCapSafe trustedPipeline.capEdges a = true) \u2227 isTransitivelySafe trustedPipeline.channels = true",
+        "docstring": "",
+        "file": "FlowCheck.lean",
+        "line": 101
+      },
+      {
+        "name": "cedar_approves_unsafe_pipeline_perRequest",
+        "statement": ": cedarEval teamPolicy { principal",
+        "docstring": "Cedar strictly approves the unsafe pipeline on a per-request basis:\n    no request Cedar can evaluate results in an exfil allow decision.",
+        "file": "FlowCheck.lean",
+        "line": 120
+      },
+      {
+        "name": "cedarAware_strictly_weaker",
+        "statement": ": -- Cedar side: both agents' exfil requests are denied (Cedar approves the pipeline) (cedarEval teamPolicy { principal",
+        "docstring": "STRICTNESS THEOREM:\n    Cedar's per-request approval of the unsafe pipeline coexists with\n    FlowGuard's detection of capability emergence.\n    Cedar-approval does NOT imply FlowGuard-safety.\n    FlowGuard is strictly stronger than Cedar.",
+        "file": "FlowCheck.lean",
+        "line": 136
+      },
+      {
+        "name": "validPipeline_requires_all_agents_safe",
+        "statement": "(P : Pipeline) [ValidPipeline P] : \u2200 a \u2208 P.agents, isCapSafe P.capEdges a = true",
+        "docstring": "A pipeline is NOT valid if any single agent is capability-unsafe.\n    This is the contrapositive of capSafe, stated as a universal theorem.",
+        "file": "FlowCheck.lean",
+        "line": 182
+      },
+      {
+        "name": "validPipeline_requires_upward_flow",
+        "statement": "(P : Pipeline) [ValidPipeline P] : isTransitivelySafe P.channels = true",
+        "docstring": "A pipeline is NOT valid if its net data flow is downward.\n    This is the contrapositive of ifcSafe.",
+        "file": "FlowCheck.lean",
+        "line": 188
+      },
+      {
+        "name": "flowguard_complete",
+        "statement": "(P : Pipeline) (h1 : \u2200 a \u2208 P.agents, isCapSafe P.capEdges a = true) (h2 : isTransitivelySafe P.channels = true) : ValidPipeline P",
+        "docstring": "",
+        "file": "FlowCheck.lean",
+        "line": 201
+      },
+      {
+        "name": "validPipeline_iff",
+        "statement": "(P : Pipeline) : ValidPipeline P \u2194 (\u2200 a \u2208 P.agents, isCapSafe P.capEdges a = true) \u2227 isTransitivelySafe P.channels = true",
+        "docstring": "",
+        "file": "FlowCheck.lean",
+        "line": 212
+      },
+      {
+        "name": "validPipeline_reject_capUnsafe",
+        "statement": "(P : Pipeline) (h : \u2203 a \u2208 P.agents, isCapSafe P.capEdges a = false) : \u00ac ValidPipeline P",
+        "docstring": "Rejection 1: a pipeline with any capability-unsafe agent cannot be certified.\n    There is no ValidPipeline certificate for it \u2014 it is a compile-time error.",
+        "file": "FlowCheck.lean",
+        "line": 220
+      },
+      {
+        "name": "validPipeline_reject_ifcUnsafe",
+        "statement": "(P : Pipeline) (h : isTransitivelySafe P.channels = false) : \u00ac ValidPipeline P",
+        "docstring": "Rejection 2: a pipeline with a downward information flow cannot be certified.\n    There is no ValidPipeline certificate for it \u2014 it is a compile-time error.",
+        "file": "FlowCheck.lean",
+        "line": 231
+      },
+      {
+        "name": "both_pipelines_certified",
+        "statement": ": (\u2200 a \u2208 trustedPipeline.agents, isCapSafe trustedPipeline.capEdges a = true) \u2227 isTransitivelySafe trustedPipeline.channels = true \u2227 (\u2200 a \u2208 minimalPipeline.agents, isCapSafe minimalPipeline.capEdges a = true) \u2227 isTransitivelySafe minimalPipeline.channels = true",
+        "docstring": "Both certified pipelines satisfy both obligations \u2014 verified side by side.",
+        "file": "FlowCheck.lean",
+        "line": 240
+      },
+      {
+        "name": "hopwise_safe_not_implies_transitive_safe",
+        "statement": ": \u2203 (channels : List Channel), isHopwiseSafe channels = true \u2227 isTransitivelySafe channels = false",
+        "docstring": "",
+        "file": "FlowCheck.lean",
+        "line": 278
+      },
+      {
+        "name": "hopwiseValidPipeline_full_certificate",
+        "statement": "(P : Pipeline) [h : HopwiseValidPipeline P] : (\u2200 a \u2208 P.agents, isCapSafe P.capEdges a = true) \u2227 isHopwiseSafe P.channels = true \u2227 isTransitivelySafe P.channels = true",
+        "docstring": "THE FULL CERTIFICATE THEOREM\n\n    A `HopwiseValidPipeline` certificate delivers all three safety guarantees\n    as a single machine-checked conjunction.\n    This is the strongest statement FlowGuard can issue about a pipeline.",
+        "file": "FlowCheck.lean",
+        "line": 314
+      },
+      {
+        "name": "hopwiseValidPipeline_rejects_intermediate_violations",
+        "statement": "(P : Pipeline) (h : isHopwiseSafe P.channels = false) : \u00ac HopwiseValidPipeline P",
+        "docstring": "REJECTION: a pipeline with any intermediate lattice violation cannot\n    receive a `HopwiseValidPipeline` certificate \u2014 it is a compile-time error.",
+        "file": "FlowCheck.lean",
+        "line": 323
+      },
+      {
+        "name": "validPipeline_hierarchy",
+        "statement": ": -- Direction 1: HopwiseValidPipeline is strictly stronger HopwiseValidPipeline trustedPipeline \u2227 -- Direction 2: ValidPipeline is strictly weaker -- (there exist pipelines where ValidPipeline holds but HopwiseValidPipeline fails) \u2203 (P : Pipeline), ValidPipeline P \u2227 isHopwiseSafe P.channels = false",
+        "docstring": "",
+        "file": "FlowCheck.lean",
+        "line": 341
+      }
+    ],
+    "InfoFlow.lean": [
+      {
+        "name": "low_le_medium",
+        "statement": ": DataLabel.low \u2264 DataLabel.medium",
+        "docstring": "",
+        "file": "InfoFlow.lean",
+        "line": 44
+      },
+      {
+        "name": "low_le_high",
+        "statement": ": DataLabel.low \u2264 DataLabel.high",
+        "docstring": "",
+        "file": "InfoFlow.lean",
+        "line": 45
+      },
+      {
+        "name": "medium_le_high",
+        "statement": ": DataLabel.medium \u2264 DataLabel.high",
+        "docstring": "",
+        "file": "InfoFlow.lean",
+        "line": 46
+      },
+      {
+        "name": "high_not_low",
+        "statement": ": \u00ac (DataLabel.high \u2264 DataLabel.low)",
+        "docstring": "",
+        "file": "InfoFlow.lean",
+        "line": 47
+      },
+      {
+        "name": "high_not_med",
+        "statement": ": \u00ac (DataLabel.high \u2264 DataLabel.medium)",
+        "docstring": "",
+        "file": "InfoFlow.lean",
+        "line": 48
+      },
+      {
+        "name": "med_not_low",
+        "statement": ": \u00ac (DataLabel.medium \u2264 DataLabel.low)",
+        "docstring": "",
+        "file": "InfoFlow.lean",
+        "line": 49
+      },
+      {
+        "name": "diagnosticChannel_locallyApproved",
+        "statement": ": channelLocallyApproved diagnosticChannel = true",
+        "docstring": "Each channel is locally approved by its own agent's policy",
+        "file": "InfoFlow.lean",
+        "line": 133
+      },
+      {
+        "name": "summaryChannel_locallyApproved",
+        "statement": ": channelLocallyApproved summaryChannel = true",
+        "docstring": "Each channel is locally approved by its own agent's policy",
+        "file": "InfoFlow.lean",
+        "line": 136
+      },
+      {
+        "name": "medicalPipeline_allLocallyApproved",
+        "statement": ": allLocallyApproved medicalPipeline = true",
+        "docstring": "All local hops pass their local policy checks",
+        "file": "InfoFlow.lean",
+        "line": 140
+      },
+      {
+        "name": "medicalPipeline_globallyUnsafe",
+        "statement": ": isTransitivelySafe medicalPipeline = false",
+        "docstring": "All local hops pass their local policy checks",
+        "file": "InfoFlow.lean",
+        "line": 144
+      },
+      {
+        "name": "nonInterference_nonCompositional",
+        "statement": ": allLocallyApproved medicalPipeline = true \u2227 isTransitivelySafe medicalPipeline = false",
+        "docstring": "THE HEADLINE THEOREM:\n    Noninterference is non-compositional.\n\n    Every local channel is approved by its own policy,\n    yet the composed pipeline violates the global security lattice.\n    Safe(Agent\u2081) \u2227 Safe(Agent\u2082) \u219b Safe(Agent\u2081 \u2218 Agent\u2082)",
+        "file": "InfoFlow.lean",
+        "line": 153
+      },
+      {
+        "name": "safePipelineIFC_fullyVerified",
+        "statement": ": allLocallyApproved safePipelineIFC = true \u2227 isTransitivelySafe safePipelineIFC = true",
+        "docstring": "A pipeline where data only flows upward is both locally and globally safe",
+        "file": "InfoFlow.lean",
+        "line": 174
+      },
+      {
+        "name": "localApproval_not_transitive",
+        "statement": ": \u2203 (a b c : DataLabel), locallyApproved a b = true \u2227 locallyApproved b c = true \u2227 secureFlow a c = false",
+        "docstring": "Local approval does not imply global security:\n    there exist labels a, b, c such that both hops are locally approved\n    yet the end-to-end flow violates the security lattice.",
+        "file": "InfoFlow.lean",
+        "line": 198
+      },
+      {
+        "name": "medicalPipeline_is_witness",
+        "statement": ": locallyApproved diagnosticChannel.src diagnosticChannel.dst = true \u2227 locallyApproved summaryChannel.src summaryChannel.dst = true \u2227 secureFlow diagnosticChannel.src summaryChannel.dst = false",
+        "docstring": "Corollary: the medical pipeline is the canonical witness.\n    Both channels pass local approval; the composed flow fails globally.",
+        "file": "InfoFlow.lean",
+        "line": 208
+      },
+      {
+        "name": "secureFlow_transitive",
+        "statement": ": \u2200 (a b c : DataLabel), secureFlow a b = true \u2192 secureFlow b c = true \u2192 secureFlow a c = true",
+        "docstring": "Global security (secureFlow) IS transitive \u2014 this is a sanity check\n    confirming that our lattice is well-formed. The problem is not with\n    the lattice but with over-permissive local policies.",
+        "file": "InfoFlow.lean",
+        "line": 217
+      },
+      {
+        "name": "cascaded_declassification_universal",
+        "statement": ": \u2200 (src dst : DataLabel), secureFlow src dst = false \u2192 \u2203 (mid : DataLabel), locallyApproved src mid = true \u2227 locallyApproved mid dst = true \u2227 secureFlow src dst = false",
+        "docstring": "",
+        "file": "InfoFlow.lean",
+        "line": 243
+      },
+      {
+        "name": "insecure_flows_characterised",
+        "statement": ": \u2200 (src dst : DataLabel), secureFlow src dst = false \u2194 (src = DataLabel.high \u2227 dst = DataLabel.low) \u2228 (src = DataLabel.high \u2227 dst = DataLabel.medium) \u2228 (src = DataLabel.medium \u2227 dst = DataLabel.low)",
+        "docstring": "The security lattice has EXACTLY THREE insecure flow directions.\n    This theorem exhaustively characterises when a direct flow is insecure.\n    It is the complete, universal characterisation of the threat model.",
+        "file": "InfoFlow.lean",
+        "line": 258
+      },
+      {
+        "name": "locally_approved_unsafe_pipeline_exists",
+        "statement": ": \u2203 (channels : List Channel), channels \u2260 [] \u2227 allLocallyApproved channels = true \u2227 isTransitivelySafe channels = false",
+        "docstring": "Existence: a locally-approved pipeline that is globally unsafe.\n    This is the universal existential \u2014 not tied to any specific agents\n    or capability names. Pure information-flow theory.",
+        "file": "InfoFlow.lean",
+        "line": 270
+      },
+      {
+        "name": "downward_src_to_sink_is_unsafe",
+        "statement": ": \u2200 (src dst : DataLabel), secureFlow src dst = false \u2192 \u2200 (channels : List Channel), pipelineSourceLabel channels = some src \u2192 pipelineSinkLabel channels = some dst \u2192 isTransitivelySafe channels = false",
+        "docstring": "",
+        "file": "InfoFlow.lean",
+        "line": 281
+      },
+      {
+        "name": "safe_pipeline_implies_upward_flow",
+        "statement": ": \u2200 (src dst : DataLabel) (channels : List Channel), pipelineSourceLabel channels = some src \u2192 pipelineSinkLabel channels = some dst \u2192 isTransitivelySafe channels = true \u2192 secureFlow src dst = true",
+        "docstring": "Converse: if a pipeline is globally safe, its source label\n    must be no more confidential than its sink label.\n    Together with the above, this gives a complete characterisation.",
+        "file": "InfoFlow.lean",
+        "line": 294
+      },
+      {
+        "name": "cascaded_declassification_parametric",
+        "statement": "(policy : DataLabel \u2192 DataLabel \u2192 Bool) (src mid dst : DataLabel) (h1 : policy src mid = true) (h2 : policy mid dst = true) (h3 : secureFlow src dst = false) : \u2203 (a b c : DataLabel), policy a b = true \u2227 policy b c = true \u2227 secureFlow a c = false",
+        "docstring": "",
+        "file": "InfoFlow.lean",
+        "line": 323
+      },
+      {
+        "name": "medical_hops_dangerous_for_any_policy",
+        "statement": "(policy : DataLabel \u2192 DataLabel \u2192 Bool) (h1 : policy DataLabel.high DataLabel.medium = true) (h2 : policy DataLabel.medium DataLabel.low = true) : \u2203 (a b c : DataLabel), policy a b = true \u2227 policy b c = true \u2227 secureFlow a c = false",
+        "docstring": "",
+        "file": "InfoFlow.lean",
+        "line": 338
+      },
+      {
+        "name": "transitive_safety_misses_intermediate",
+        "statement": ": \u2203 (channels : List Channel), isTransitivelySafe channels = true \u2227 isHopwiseSafe channels = false",
+        "docstring": "",
+        "file": "InfoFlow.lean",
+        "line": 365
+      },
+      {
+        "name": "hopwise_safe_certificate",
+        "statement": "(channels : List Channel) (h : isHopwiseSafe channels = true) : \u2200 ch \u2208 channels, secureFlow ch.src ch.dst = true",
+        "docstring": "`isHopwiseSafe` gives you per-hop security certificates.\n    If a pipeline is hopwise-safe, every single channel in it is individually\n    secure \u2014 there are no intermediate violations hiding from endpoint checks.",
+        "file": "InfoFlow.lean",
+        "line": 377
+      },
+      {
+        "name": "transitive_safe_not_implies_hopwise",
+        "statement": ": \u2203 (channels : List Channel), isTransitivelySafe channels = true \u2227 isHopwiseSafe channels = false",
+        "docstring": "`isTransitivelySafe` is strictly WEAKER than `isHopwiseSafe`:\n    a pipeline can pass the transitive check while failing the hop-wise check.\n    The witness is `transitive_safety_misses_intermediate`.",
+        "file": "InfoFlow.lean",
+        "line": 386
+      },
+      {
+        "name": "medicalPipeline_hopwise_unsafe",
+        "statement": ": isHopwiseSafe medicalPipeline = false",
+        "docstring": "The medical pipeline is hopwise-UNSAFE: the second hop High\u2192Low\n    is a direct security violation visible to `isHopwiseSafe`.",
+        "file": "InfoFlow.lean",
+        "line": 394
+      },
+      {
+        "name": "safePipelineIFC_hopwise_safe",
+        "statement": ": isHopwiseSafe safePipelineIFC = true",
+        "docstring": "The safe reference pipeline is hopwise-safe: every hop is upward,\n    and the whole pipeline passes both the hop-wise and transitive checks.",
+        "file": "InfoFlow.lean",
+        "line": 399
+      },
+      {
+        "name": "isTransitivelySafe_only_checks_endpoints",
+        "statement": ": \u2200 (channels : List Channel) (src dst : DataLabel), pipelineSourceLabel channels = some src \u2192 pipelineSinkLabel channels = some dst \u2192 secureFlow src dst = true \u2192 isTransitivelySafe channels = true",
+        "docstring": "",
+        "file": "InfoFlow.lean",
+        "line": 413
+      },
+      {
+        "name": "hopwise_is_necessary_for_intermediate_safety",
+        "statement": ": \u2200 (channels : List Channel), (\u2203 ch \u2208 channels, secureFlow ch.src ch.dst = false) \u2192 isHopwiseSafe channels = false",
+        "docstring": "COROLLARY: `isHopwiseSafe` is the only check that can catch\n    intermediate violations. If a pipeline fails `isHopwiseSafe`,\n    no endpoint check can detect it.",
+        "file": "InfoFlow.lean",
+        "line": 425
+      }
+    ]
+  }
+}

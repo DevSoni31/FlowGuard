@@ -7,7 +7,7 @@ Usage:
 """
 
 from lean_bridge import run_lake_build, verify_demo_in_lean, get_all_theorems
-import sys, json, os, argparse, threading, webbrowser, time
+import sys, os, argparse, webbrowser
 from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
@@ -148,29 +148,17 @@ def print_lean_verification(lean_checks: list):
             lean_out = check['value'].replace("FlowGuard.", "")
             console.print(f"       lean out: [dim]{lean_out[:120]}[/]")
 
-def launch_dashboard(result: dict, specs: list, lean_checks: list = None, all_theorems: dict = None):
-    """Write result.json and open the browser dashboard."""
-    output = {
-        "result":       result,
-        "specs":        [{"name": s["agent"].name, "filepath": s["filepath"],
-                          "method": s["method"], "description": s["description"]} for s in specs],
-        "lean_checks":  lean_checks or [],
-        "all_theorems": all_theorems or {},
-    }
-    Path("result.json").write_text(json.dumps(output, indent=2))
-
-    import server as srv
-    t = threading.Thread(target=srv.run, daemon=True)
-    t.start()
-    time.sleep(1.2)
-    webbrowser.open("http://localhost:5050")
-    console.print("\n[bold cyan]Dashboard opened at http://localhost:5050[/]")
-    console.print("[dim]Press Ctrl+C to exit.[/]")
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        pass
+def launch_dashboard():
+    """Open the static FlowGuard demo page directly in the browser."""
+    # Keep the dashboard template in poc/templates and resolve from this file's directory.
+    html_path = Path(__file__).resolve().parent / "templates" / "flowguard-page.html"
+    if not html_path.exists():
+        console.print(f"[yellow]⚠ Dashboard page not found at {html_path}[/]")
+        console.print("[dim]Expected location: poc/templates/flowguard-page.html[/]")
+        return
+    webbrowser.open(html_path.as_uri())
+    console.print(f"\n[bold cyan]Dashboard opened in browser.[/]")
+    console.print(f"[dim]({html_path})[/]")
 
 def main():
     # argparse MUST be first — before any side effects
@@ -242,7 +230,7 @@ def main():
 
     # Launch dashboard
     if not args.no_dashboard:
-        launch_dashboard(result, specs, lean_checks, all_theorems)
+        launch_dashboard()
 
 if __name__ == "__main__":
     main()

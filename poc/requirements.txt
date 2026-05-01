@@ -1,4 +1,3 @@
-flask
 rich
 google-genai
 python-dotenv

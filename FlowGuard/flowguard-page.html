@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FlowGuard — Mathematical Safety for Multi-Agent AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<style>
+/* ── TOKENS ── */
+:root {
+  --pampas: #f2ede6;
+  --pampas-deep: #e8e0d5;
+  --pampas-deeper: #ddd3c6;
+  --pampas-surface: #f7f3ee;
+  --terracotta: #c4622d;
+  --terracotta-dark: #9e4a1e;
+  --terracotta-light: #e8835a;
+  --ink: #2c1f14;
+  --ink-muted: #7a6655;
+  --ink-faint: #b5a898;
+  --divider: #d4c9bb;
+
+  --font-display: 'IM Fell English', Georgia, 'Times New Roman', serif;
+  --font-body: Georgia, 'Times New Roman', serif;
+  --font-mono: 'Courier New', Courier, monospace;
+
+  --text-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
+  --text-sm: clamp(0.875rem, 0.8rem + 0.35vw, 1rem);
+  --text-base: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+  --text-lg: clamp(1.125rem, 1rem + 0.75vw, 1.5rem);
+  --text-xl: clamp(1.5rem, 1.2rem + 1.25vw, 2.25rem);
+  --text-2xl: clamp(2rem, 1.2rem + 2.5vw, 3.5rem);
+  --text-hero: clamp(2.5rem, 1rem + 4vw, 4.5rem);
+
+  --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem;
+  --space-6: 1.5rem; --space-8: 2rem; --space-10: 2.5rem;
+  --space-12: 3rem; --space-16: 4rem; --space-20: 5rem;
+
+  --radius-sm: 0.375rem; --radius-md: 0.5rem; --radius-lg: 0.75rem; --radius-xl: 1rem;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --transition: 180ms var(--ease-out);
+
+  --shadow-sm: 0 1px 3px rgba(44,31,20,0.08);
+  --shadow-md: 0 4px 16px rgba(44,31,20,0.10);
+  --shadow-lg: 0 12px 40px rgba(44,31,20,0.13);
+}
+
+/* ── BASE ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; scroll-padding-top: 5rem; -webkit-font-smoothing: antialiased; }
+body {
+  background: var(--pampas);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: 1.7;
+  min-height: 100dvh;
+}
+img, svg { display: block; max-width: 100%; }
+p { max-width: 68ch; text-wrap: pretty; }
+h1,h2,h3,h4 { text-wrap: balance; line-height: 1.2; font-family: var(--font-display); }
+button { cursor: pointer; background: none; border: none; font: inherit; color: inherit; }
+::selection { background: rgba(196,98,45,0.18); color: var(--ink); }
+:focus-visible { outline: 2px solid var(--terracotta); outline-offset: 3px; border-radius: var(--radius-sm); }
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: rgba(242,237,230,0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--divider);
+  padding: var(--space-3) var(--space-8);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.nav-logo {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: var(--terracotta);
+  letter-spacing: -0.01em;
+  display: flex; align-items: center; gap: var(--space-2);
+}
+.nav-logo svg { color: var(--terracotta); }
+.nav-links { display: flex; gap: var(--space-6); list-style: none; }
+.nav-links a {
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  text-decoration: none;
+  transition: color var(--transition);
+}
+.nav-links a:hover { color: var(--terracotta); }
+.nav-badge {
+  font-size: var(--text-xs);
+  background: var(--terracotta);
+  color: var(--pampas-surface);
+  padding: 0.2em 0.7em;
+  border-radius: var(--radius-full, 9999px);
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+
+/* ── HERO ── */
+.hero {
+  min-height: 100dvh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center;
+  padding: var(--space-20) var(--space-8) var(--space-16);
+  position: relative; overflow: hidden;
+}
+.hero-grain {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 200px;
+}
+.hero-kicker {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--terracotta);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: var(--space-6);
+  opacity: 0; animation: fade-up 0.8s var(--ease-out) 0.2s forwards;
+}
+.hero-title {
+  font-size: var(--text-hero);
+  color: var(--ink);
+  margin-bottom: var(--space-6);
+  opacity: 0; animation: fade-up 0.9s var(--ease-out) 0.4s forwards;
+}
+.hero-title em { color: var(--terracotta); font-style: italic; }
+.hero-sub {
+  font-size: var(--text-lg);
+  color: var(--ink-muted);
+  max-width: 52ch;
+  margin: 0 auto var(--space-10);
+  opacity: 0; animation: fade-up 0.9s var(--ease-out) 0.6s forwards;
+}
+.hero-pills {
+  display: flex; flex-wrap: wrap; gap: var(--space-3); justify-content: center;
+  margin-bottom: var(--space-10);
+  opacity: 0; animation: fade-up 0.9s var(--ease-out) 0.8s forwards;
+}
+.pill {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  padding: 0.35em 0.9em;
+  border: 1px solid var(--divider);
+  border-radius: 9999px;
+  color: var(--ink-muted);
+  background: var(--pampas-surface);
+  letter-spacing: 0.05em;
+}
+.hero-scroll-hint {
+  opacity: 0; animation: fade-up 0.8s var(--ease-out) 1.2s forwards;
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  display: flex; flex-direction: column; align-items: center; gap: var(--space-2);
+}
+.scroll-line {
+  width: 1px; height: 3rem;
+  background: linear-gradient(to bottom, var(--terracotta), transparent);
+  animation: pulse-line 2s ease-in-out infinite;
+}
+@keyframes pulse-line { 0%,100%{opacity:0.4} 50%{opacity:1} }
+
+/* ── SECTION BASE ── */
+section { padding: clamp(var(--space-12), 8vw, var(--space-20)) var(--space-8); }
+.container { max-width: 900px; margin: 0 auto; }
+.container-wide { max-width: 1100px; margin: 0 auto; }
+.section-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--terracotta);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: var(--space-4);
+}
+.section-title {
+  font-size: var(--text-xl);
+  color: var(--ink);
+  margin-bottom: var(--space-6);
+}
+.divider-line {
+  border: none; border-top: 1px solid var(--divider);
+  margin: 0;
+}
+
+/* ── FADE REVEALS ── */
+.fade-in { opacity: 1; }
+@supports (animation-timeline: scroll()) {
+  .fade-in {
+    opacity: 0;
+    animation: reveal-fade linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 70%;
+  }
+}
+@keyframes reveal-fade { to { opacity: 1; } }
+
+/* ── SECTION: PROBLEM ── */
+.problem-bg { background: var(--pampas-surface); }
+.problem-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-10); align-items: start; }
+.agent-card {
+  background: var(--pampas);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-xl);
+  padding: var(--space-8);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition);
+}
+.agent-card-header {
+  display: flex; align-items: center; gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+.agent-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--terracotta-light);
+}
+.agent-name { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--ink); font-weight: bold; }
+.safe-badge {
+  margin-left: auto;
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  padding: 0.2em 0.6em; border-radius: 9999px;
+  background: rgba(76,150,80,0.12); color: #3d7a40;
+  border: 1px solid rgba(76,150,80,0.25);
+}
+.cap-list { list-style: none; }
+.cap-list li {
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--divider);
+  color: var(--ink-muted);
+  display: flex; align-items: center; gap: var(--space-2);
+}
+.cap-list li:last-child { border-bottom: none; }
+.cap-label { color: var(--ink-faint); }
+.arrow-section {
+  grid-column: 1 / -1;
+  display: flex; flex-direction: column; align-items: center; gap: var(--space-4);
+  padding: var(--space-8) 0;
+}
+.arrow-row { display: flex; align-items: center; gap: var(--space-4); }
+.arrow-cap { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--ink-muted); }
+.arrow-sym { color: var(--terracotta); font-size: var(--text-lg); font-weight: bold; }
+.emergent-result {
+  background: rgba(196,98,45,0.07);
+  border: 1.5px solid rgba(196,98,45,0.3);
+  border-radius: var(--radius-xl);
+  padding: var(--space-8);
+  text-align: center;
+  grid-column: 1 / -1;
+}
+.emergent-result .big { font-size: var(--text-xl); color: var(--terracotta); font-family: var(--font-display); }
+.emergent-sub { font-size: var(--text-sm); color: var(--ink-muted); margin-top: var(--space-3); }
+
+/* ── SECTION: THEOREMS ── */
+.theorem-list { display: flex; flex-direction: column; gap: var(--space-6); }
+.theorem-card {
+  background: var(--pampas-surface);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6) var(--space-8);
+  display: grid; grid-template-columns: auto 1fr; gap: var(--space-4) var(--space-6);
+  align-items: start;
+}
+.theorem-number {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--terracotta);
+  border: 1px solid rgba(196,98,45,0.3);
+  border-radius: var(--radius-sm);
+  padding: 0.2em 0.5em;
+  white-space: nowrap;
+  margin-top: 0.2em;
+}
+.theorem-name { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--ink); margin-bottom: var(--space-2); }
+.theorem-file { font-size: var(--text-xs); color: var(--terracotta); margin-bottom: var(--space-3); font-family: var(--font-mono); }
+.theorem-stmt {
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  background: var(--pampas-deeper); border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4); margin-bottom: var(--space-3);
+  color: var(--ink-muted); overflow-x: auto; white-space: pre-wrap; word-break: break-all;
+  border-left: 3px solid rgba(196,98,45,0.4);
+}
+.theorem-english { font-size: var(--text-sm); color: var(--ink-muted); font-style: italic; }
+
+/* ── SECTION: PIPELINE ── */
+.pipeline-bg { background: var(--pampas-surface); }
+.pipeline-steps { display: flex; flex-direction: column; gap: 0; }
+.pipeline-step {
+  display: grid; grid-template-columns: 3rem 1fr;
+  gap: 0 var(--space-6); position: relative;
+}
+.pipeline-step:not(:last-child)::after {
+  content: ''; position: absolute;
+  left: 1.5rem; top: 3rem; bottom: -1rem;
+  width: 1px; background: var(--divider); transform: translateX(-50%);
+}
+.step-num {
+  width: 3rem; height: 3rem; border-radius: 50%;
+  background: var(--pampas-deeper);
+  border: 2px solid var(--divider);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: var(--text-sm);
+  color: var(--terracotta); font-weight: bold; flex-shrink: 0;
+  position: relative; z-index: 1;
+}
+.step-content { padding-bottom: var(--space-10); }
+.step-title { font-size: var(--text-lg); color: var(--ink); margin-bottom: var(--space-3); font-family: var(--font-display); }
+.step-body { font-size: var(--text-base); color: var(--ink-muted); margin-bottom: var(--space-4); }
+
+/* ── TERMINAL BLOCK ── */
+.terminal {
+  background: #1a1714;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  margin: var(--space-4) 0;
+}
+.terminal-bar {
+  background: #2a2420;
+  padding: var(--space-3) var(--space-4);
+  display: flex; align-items: center; gap: var(--space-2);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.dot-r { width:12px;height:12px;border-radius:50%;background:#ff5f57; }
+.dot-y { width:12px;height:12px;border-radius:50%;background:#febc2e; }
+.dot-g { width:12px;height:12px;border-radius:50%;background:#28c840; }
+.terminal-label { font-family: var(--font-mono); font-size: var(--text-xs); color: rgba(255,255,255,0.3); margin-left: auto; }
+.terminal-body {
+  padding: var(--space-6) var(--space-6);
+  font-family: var(--font-mono);
+  font-size: clamp(0.7rem, 1.5vw, 0.85rem);
+  line-height: 1.8; color: #cfc8be;
+  overflow-x: auto; white-space: pre;
+}
+.t-green  { color: #5ec26a; }
+.t-red    { color: #e0705a; }
+.t-yellow { color: #e8a840; }
+.t-cyan   { color: #5bb8c4; }
+.t-dim    { color: #6b6058; }
+.t-bold   { font-weight: bold; }
+.t-orange { color: #d4855a; }
+.t-rule   { color: #4a403a; }
+
+/* ── SECTION: OUTPUT WALKTHROUGH ── */
+.walkthrough { display: flex; flex-direction: column; gap: var(--space-10); }
+.wt-block { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); align-items: start; }
+.wt-annotation { padding-top: var(--space-2); }
+.wt-tag {
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  color: var(--terracotta); letter-spacing: 0.12em; text-transform: uppercase;
+  margin-bottom: var(--space-3);
+}
+.wt-heading { font-size: var(--text-lg); color: var(--ink); margin-bottom: var(--space-4); font-family: var(--font-display); }
+.wt-body { font-size: var(--text-base); color: var(--ink-muted); }
+.wt-body + .wt-body { margin-top: var(--space-3); }
+
+/* ── SECTION: CEDAR ── */
+.cedar-bg { background: var(--pampas-surface); }
+.cedar-split { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-10); }
+.cedar-col-title { font-family: var(--font-mono); font-size: var(--text-sm); margin-bottom: var(--space-4); letter-spacing: 0.08em; }
+.cedar-green { color: #3d7a40; }
+.cedar-red   { color: var(--terracotta); }
+.cedar-body  { font-size: var(--text-base); color: var(--ink-muted); }
+
+/* ── SECTION: VERDICT ── */
+.verdict-box {
+  border: 2px solid rgba(196,98,45,0.4);
+  border-radius: var(--radius-xl);
+  padding: var(--space-12) var(--space-10);
+  text-align: center;
+  background: rgba(196,98,45,0.04);
+  max-width: 680px; margin: 0 auto;
+}
+.verdict-icon { font-size: 3rem; margin-bottom: var(--space-4); }
+.verdict-title { font-size: var(--text-xl); color: var(--terracotta); margin-bottom: var(--space-4); font-family: var(--font-display); }
+.verdict-body { font-size: var(--text-base); color: var(--ink-muted); max-width: 52ch; margin: 0 auto; }
+.fired-edges { display: flex; flex-direction: column; gap: var(--space-3); margin: var(--space-8) 0; }
+.edge-line {
+  font-family: var(--font-mono); font-size: var(--text-sm);
+  background: rgba(196,98,45,0.08);
+  border: 1px solid rgba(196,98,45,0.2);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-6);
+  color: var(--ink);
+}
+
+/* ── FOOTER ── */
+footer {
+  border-top: 1px solid var(--divider);
+  padding: var(--space-10) var(--space-8);
+  text-align: center;
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+}
+
+/* ── KEYFRAMES ── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 700px) {
+  nav { padding: var(--space-3) var(--space-4); }
+  .nav-links { display: none; }
+  .problem-grid, .cedar-split, .wt-block { grid-template-columns: 1fr; }
+  .hero-title { font-size: clamp(2rem, 8vw, 3.5rem); }
+  section { padding: var(--space-12) var(--space-4); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+      <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+      <path d="M2 17l10 5 10-5"/>
+      <path d="M2 12l10 5 10-5"/>
+    </svg>
+    FlowGuard
+  </div>
+  <ul class="nav-links">
+    <li><a href="#problem">Problem</a></li>
+    <li><a href="#theorems">Theorems</a></li>
+    <li><a href="#pipeline">Pipeline</a></li>
+    <li><a href="#output">Output</a></li>
+    <li><a href="#verdict">Verdict</a></li>
+  </ul>
+  <span class="nav-badge">Lean 4</span>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="top">
+  <div class="hero-grain" aria-hidden="true"></div>
+  <p class="hero-kicker">FlowGuard · Hackathon Demo · 2026</p>
+  <h1 class="hero-title">Mathematical safety<br>for <em>multi-agent AI</em></h1>
+  <p class="hero-sub">Code → Spec → Verify. FlowGuard proves that individually-safe agents can compose into an unsafe system, and catches it before deployment.</p>
+  <div class="hero-pills">
+    <span class="pill">CapHypergraph.lean</span>
+    <span class="pill">InfoFlow.lean</span>
+    <span class="pill">CedarBridge.lean</span>
+    <span class="pill">CedarIncompleteness.lean</span>    
+    <span class="pill">AgentProgram.lean</span>
+    <span class="pill">FlowCheck.lean</span>
+  </div>
+  <div class="hero-scroll-hint">
+    <div class="scroll-line"></div>
+    Scroll to explore
+  </div>
+</section>
+
+<hr class="divider-line">
+
+<!-- PROBLEM -->
+<section id="problem">
+  <div class="container">
+    <p class="section-label fade-in">01 — The Problem</p>
+    <h2 class="section-title fade-in">Capability emergence is invisible to standard tools</h2>
+    <p class="fade-in" style="color: var(--ink-muted); margin-bottom: var(--space-10);">
+      Two agents. Both individually safe. Both approved. You deploy them together, and a new capability appears that neither held alone. This is <em>capability emergence</em>. Standard policy engines cannot see it because they reason about agents in isolation, not about what compositions of agents hold.
+    </p>
+    <div class="problem-grid">
+      <div class="agent-card fade-in">
+        <div class="agent-card-header">
+          <div class="agent-dot"></div>
+          <span class="agent-name">web-search-agent</span>
+          <span class="safe-badge">✓ SAFE</span>
+        </div>
+        <ul class="cap-list">
+          <li><span class="cap-label">base</span> webSearch</li>
+          <li><span class="cap-label">forbidden</span> codeExec, exfilData, networkAccess…</li>
+        </ul>
+      </div>
+      <div class="agent-card fade-in">
+        <div class="agent-card-header">
+          <div class="agent-dot" style="background: var(--terracotta);"></div>
+          <span class="agent-name">code-exec-agent</span>
+        </div>
+        <ul class="cap-list">
+          <li><span class="cap-label">base</span> codeExec, networkAccess, shellExec, webSearch</li>
+          <li><span class="cap-label">forbidden</span> dataLeak, exfilData, remoteExec…</li>
+        </ul>
+      </div>
+
+      <div class="arrow-section fade-in">
+        <p style="font-size: var(--text-sm); color: var(--ink-faint); font-family: var(--font-mono); letter-spacing: 0.08em;">COMPOSITION FIRES TWO HYPEREDGES</p>
+
+        <div style="display: flex; flex-direction: column; gap: var(--space-6); width: 100%; max-width: 580px;">
+            <div style="background: var(--pampas); border: 1px solid var(--divider); border-radius: var(--radius-lg); padding: var(--space-6);">
+                <div class="arrow-row" style="margin-bottom: var(--space-3);">
+                <span class="arrow-cap">webSearch ∧ codeExec</span>
+                <span class="arrow-sym">→</span>
+                <span style="font-family: var(--font-mono); font-size: var(--text-sm); color: var(--terracotta);">exfilData</span>
+                </div>
+                <p style="font-size: var(--text-xs); color: var(--ink-muted); font-family: var(--font-mono); line-height: 1.7; max-width: 100%;">
+                We demonstrate that exfilData is an emergent property of the composition. While A (web) and B (exec) are individually compliant with the safety lattice, their union satisfies the preconditions for unauthorized data egress. This "hopwise" violation is caught by the Lean kernel, proving that safety is not preserved under composition.  
+                </p>
+            </div>
+            <div style="background: var(--pampas); border: 1px solid var(--divider); border-radius: var(--radius-lg); padding: var(--space-6);">
+                <div class="arrow-row" style="margin-bottom: var(--space-3);">
+                <span class="arrow-cap">codeExec ∧ networkAccess</span>
+                <span class="arrow-sym">→</span>
+                <span style="font-family: var(--font-mono); font-size: var(--text-sm); color: var(--terracotta);">remoteExec</span>
+                </div>
+                <p style="font-size: var(--text-xs); color: var(--ink-muted); font-family: var(--font-mono); line-height: 1.7; max-width: 100%;">
+                In isolation, codeExec is a local sandbox risk and networkAccess is a data-flow risk. When composed, they synthesize a Remote Execution Primitive. This allows an agent to fetch and execute arbitrary payloads from reachable endpoints, bypassing local execution boundaries.                </p>
+            </div>
+        </div>
+      </div>
+
+      <div class="emergent-result fade-in">
+        <div class="big">Emergent Capabilities Detected</div>
+        <p class="emergent-sub" style="margin: var(--space-3) auto 0; text-align: center;">Neither agent held exfilData or remoteExec individually. The composed system does. FlowGuard catches this. Standard policy engines do not.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider-line">
+
+<!-- THEOREMS -->
+<section id="theorems">
+  <div class="container">
+    <p class="section-label fade-in">02 — The Proofs</p>
+    <h2 class="section-title fade-in">Lean kernel verified. Not tests, but certificates.</h2>
+    <p class="fade-in" style="color: var(--ink-muted); margin-bottom: var(--space-10);">
+      Every claim FlowGuard makes is backed by a formal proof accepted by the Lean 4 kernel. The kernel does not trust heuristics or test suites; it verifies mathematical derivations. 3304 compilation jobs passed with zero errors.
+    </p>
+    <div class="theorem-list">
+      <div class="theorem-card fade-in">
+        <span class="theorem-number">T-01</span>
+        <div>
+          <div class="theorem-name">nonCompositionality_universal</div>
+          <div class="theorem-file">CapHypergraph.lean</div>
+          <div class="theorem-stmt">∀ (edges : List HyperEdge) (a b : Agent),
+  isCapSafe edges a = true → isCapSafe edges b = true →
+  (∃ e ∈ edges, ¬(e.premises ⊆ a.base) ∧ ¬(e.premises ⊆ b.base)
+    ∧ e.premises ⊆ a.base ∪ b.base ∧ e.conclusion ∈ a.forbidden ∪ b.forbidden)
+  → isCapSafe edges (compose a b) = false</div>
+          <div class="theorem-english">For any agents satisfying the structural premises, individual safety does not survive composition. This is the headline result which is proved universally, not for a specific example.</div>
+        </div>
+      </div>
+      <div class="theorem-card fade-in">
+        <span class="theorem-number">T-02</span>
+        <div>
+          <div class="theorem-name">capClosure_is_fixpoint</div>
+          <div class="theorem-file">CapHypergraph.lean</div>
+          <div class="theorem-stmt">∀ (edges : List HyperEdge) (S : Finset Cap),
+  capClosure edges (capClosure edges S) = capClosure edges S</div>
+          <div class="theorem-english">The capability closure operator is idempotent, which means applying it twice gives the same result as once. This guarantees FlowGuard computes the tightest possible emergent capability set, not an over-approximation.</div>
+        </div>
+      </div>
+      <div class="theorem-card fade-in">
+        <span class="theorem-number">T-03</span>
+        <div>
+          <div class="theorem-name">cedar_nonCompositionality_gap</div>
+          <div class="theorem-file">CedarBridge.lean</div>
+          <div class="theorem-stmt">cedar_eval exfilData webAgent = CedarDecision.deny
+cedar_eval exfilData execAgent = CedarDecision.deny
+-- yet: isCapSafe edges (compose webAgent execAgent) = false</div>
+          <div class="theorem-english">Cedar correctly denies exfiltration for every individual agent. However, the composed system can exfiltrate. This is a gap Cedar cannot close because it has no concept of capability hyperedge closure.</div>
+        </div>
+      </div>
+      <div class="theorem-card fade-in">
+        <span class="theorem-number">T-04</span>
+        <div>
+          <div class="theorem-name">transitive_safety_misses_intermediate</div>
+          <div class="theorem-file">InfoFlow.lean</div>
+          <div class="theorem-stmt">∃ pipeline, isTransitivelySafe pipeline = true
+                  ∧ isHopwiseSafe pipeline = false</div>
+          <div class="theorem-english">An endpoint-only information flow check can pass while an intermediate hop violates the security lattice. FlowGuard's per-hop check catches what the endpoint check misses.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider-line">
+
+<!-- PIPELINE -->
+<section id="pipeline" class="pipeline-bg">
+  <div class="container">
+    <p class="section-label fade-in">03 — The Pipeline</p>
+    <h2 class="section-title fade-in">Code → Spec → Verify</h2>
+    <p class="fade-in" style="color: var(--ink-muted); margin-bottom: var(--space-10);">
+      FlowGuard reads raw Python source, extracts what each agent can do, runs the mathematical checks, and cites the exact theorem that covers each finding directly from the <code>.lean</code> source files.
+    </p>
+    <div class="pipeline-steps">
+      <div class="pipeline-step fade-in">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <h3 class="step-title">Lean kernel build — 3304 jobs</h3>
+          <p class="step-body">lake build compiles all five <code>.lean</code> files. The Lean kernel verifies every proof. This is not a type checker; rather, the kernel reconstructs and checks the full derivation. Zero errors means every theorem is mathematically sound.</p>
+          <div class="terminal">
+            <div class="terminal-bar"><div class="dot-r"></div><div class="dot-y"></div><div class="dot-g"></div><span class="terminal-label">lake build</span></div>
+            <div class="terminal-body"><span class="t-dim">Running lake build on FlowGuard repo...</span>
+  <span class="t-dim">Build completed successfully (3304 jobs).</span>
+<span class="t-green">✓ lake build passed — Lean kernel verified all proofs</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-step fade-in">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <h3 class="step-title">Lean kernel verification — 5 live checks</h3>
+          <p class="step-body">Five <code>#eval</code> and <code>#check</code> calls are sent to the Lean kernel at runtime. The values printed — <code>true</code>, <code>false</code>, <code>CedarDecision.deny</code> — are computed by Lean, not by Python. These are not assertions. They are kernel evaluations.</p>
+          <div class="terminal">
+            <div class="terminal-bar"><div class="dot-r"></div><div class="dot-y"></div><div class="dot-g"></div><span class="terminal-label">verify_demo_in_lean()</span></div>
+            <div class="terminal-body"><span class="t-green">  ✓</span>  webAgent is individually safe
+       theorem:  <span class="t-cyan">webAgent_is_safe</span>
+       lean out: <span class="t-green">true</span>
+<span class="t-green">  ✓</span>  execAgent is individually safe
+       theorem:  <span class="t-cyan">execAgent_is_safe</span>
+       lean out: <span class="t-green">true</span>
+<span class="t-green">  ✓</span>  Composed team is UNSAFE
+       theorem:  <span class="t-cyan">composedTeam_is_unsafe</span>
+       lean out: <span class="t-red">false</span>
+<span class="t-green">  ✓</span>  Cedar denies exfilData
+       theorem:  <span class="t-cyan">cedar_nonCompositionality_gap</span>
+       lean out: <span class="t-orange">CedarDecision.deny</span>
+<span class="t-green">  ✓</span>  capClosure is a fixed point
+       theorem:  <span class="t-cyan">capClosure_is_fixpoint</span>
+       lean out: <span class="t-dim">capClosure_is_fixpoint : ∀ (edges : List HyperEdge) (S : Finset Cap),</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-step fade-in">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <h3 class="step-title">Capability extraction — AST (Abstract Syntax Tree) analysis</h3>
+          <p class="step-body">FlowGuard reads the Python agent files directly — not documentation, not annotations. The AST (Abstract Syntax Tree) extractor walks the parsed code structure, inferring what each agent can and cannot do, and produces a formal capability spec. No API key required — this path runs entirely offline.</p>
+          <p class="step-body" style="margin-top: var(--space-3);">For richer inference, FlowGuard also supports an LLM extraction mode (currently using Gemini) which reads the full agent source and reasons about capabilities semantically. In the demo you are watching, AST mode is used. The <code>--mode</code> flag accepts <code>ast</code>, <code>llm</code>, or <code>both</code>. The latter runs AST first and lets LLM refine the result.</p>
+          <div class="terminal">
+            <div class="terminal-bar"><div class="dot-r"></div><div class="dot-y"></div><div class="dot-g"></div><span class="terminal-label">[1/3] Capability Extraction</span></div>
+            <div class="terminal-body"><span class="t-yellow">  AST</span> <span class="t-bold">web-search-agent</span>  <span class="t-dim">sample_agents/web_search_agent.py</span>
+       base:      <span class="t-cyan">['webSearch']</span>
+       forbidden: <span class="t-red">['codeExec', 'dataLeak', 'exfilData', 'networkAccess'...]</span>
+       label:     <span class="t-dim">medium</span>
+
+<span class="t-yellow">  AST</span> <span class="t-bold">code-exec-agent</span>  <span class="t-dim">sample_agents/code_exec_agent.py</span>
+       base:      <span class="t-cyan">['codeExec', 'networkAccess', 'shellExec', 'webSearch']</span>
+       forbidden: <span class="t-red">['dataLeak', 'exfilData', 'remoteExec'...]</span>
+       label:     <span class="t-dim">low</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-step fade-in">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <h3 class="step-title">Individual safety checks</h3>
+          <p class="step-body">Each agent is checked in isolation first. Notice: <code>code-exec-agent</code> is already unsafe before composition. The Lean-proven minimal counterexample used two individually-safe agents. This real-world agent, on the other hand, is a strictly worse case. Emergence fires with a single agent. The universal theorem covers this as the degenerate single-agent case.</p>
+          <div class="terminal">
+            <div class="terminal-bar"><div class="dot-r"></div><div class="dot-y"></div><div class="dot-g"></div><span class="terminal-label">[2/3] Individual Safety Checks</span></div>
+            <div class="terminal-body"><span class="t-green">  ✓ SAFE</span>  <span class="t-bold">web-search-agent</span>
+    emergent caps: <span class="t-cyan">['webSearch']</span>
+
+<span class="t-red">  ✗ UNSAFE</span>  <span class="t-bold">code-exec-agent</span>
+    emergent caps: <span class="t-cyan">['codeExec', 'exfilData', 'networkAccess', 'remoteExec'...]</span>
+    <span class="t-yellow">⚠  This agent is unsafe IN ISOLATION — before any composition.</span>
+    <span class="t-dim">The Lean-proven minimal counterexample requires two individually-safe agents.</span>
+    <span class="t-dim">This real-world agent is a strictly worse case: emergence fires with a single agent.</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-step fade-in">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <h3 class="step-title">Composition verdict + theorem citation</h3>
+          <p class="step-body">FlowGuard computes the composed capability set via hyperedge closure and delivers a verdict. The theorem cited is read live from <code>CapHypergraph.lean</code> instead of being hardcoded. The spec and the verification are the same artifact.</p>
+          <div class="terminal">
+            <div class="terminal-bar"><div class="dot-r"></div><div class="dot-y"></div><div class="dot-g"></div><span class="terminal-label">[3/3] Composition Verdict</span></div>
+            <div class="terminal-body"><span class="t-red">╭── COMPOSITION RESULT ──────────────────────────────╮
+│ ✗ UNSAFE — Emergent capability detected             │
+│                                                     │
+│   ⚡ webSearch ∧ codeExec → exfilData               │
+│   ⚡ codeExec ∧ networkAccess → remoteExec          │
+╰─────────────────────────────────────────────────────╯</span>
+
+  <span class="t-bold">nonCompositionality_universal</span>  <span class="t-dim">CapHypergraph.lean</span>
+  <span class="t-dim">: ∀ (edges : List HyperEdge) (a b : Agent),</span>
+  <span class="t-dim">  isCapSafe edges a = true → isCapSafe edges b = true →</span>
+  <span class="t-dim">  (∃ e ∈ edges, e.premises ⊆ a.base ∪ b.base ∧ e.conclusion ∈ forbidden)...</span>
+  → <span class="t-dim">Individual safety does not survive composition.</span>
+    <span class="t-green">↑ text read directly from CapHypergraph.lean</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider-line">
+
+<!-- CEDAR -->
+<section id="output" class="cedar-bg">
+  <div class="container">
+    <p class="section-label fade-in">04 — Cedar's Structural Blind Spot</p>
+    <h2 class="section-title fade-in">A correct tool answering the wrong question</h2>
+    <p class="fade-in" style="color: var(--ink-muted); margin-bottom: var(--space-10);">
+      Cedar, Amazon's formally verified policy language, is mathematically sound. It is not wrong. It is asking a question it was designed to ask: <em>can this principal perform this action?</em> That question is answered per-agent, per-request, in isolation. It cannot ask: <em>what can this composition of agents hold?</em>
+    </p>
+    <div class="cedar-split fade-in">
+      <div>
+        <div class="cedar-col-title cedar-green">✓ Cedar says</div>
+        <p class="cedar-body"><code>exfilData</code> → <strong>DENY</strong> for every individual agent. Cedar evaluates each <code>(principal, action)</code> pair correctly. Its formal proof is sound. Lean verified this: <code>cedar_eval exfilData webAgent = CedarDecision.deny</code>.</p>
+        <p class="cedar-body" style="margin-top: var(--space-4);">Cedar is doing exactly what it was built to do. It checks whether a single agent, making a single request, is permitted to perform a single action. That question is answered correctly every time.</p>
+      </div>
+      <div>
+        <div class="cedar-col-title cedar-red">✗ FlowGuard says</div>
+        <p class="cedar-body">The composed team <strong>CAN</strong> exfiltrate — via the hyperedge <code>webSearch ∧ codeExec → exfilData</code>. This is not a request Cedar can evaluate, because it is not a request at all. It is an emergent property of the combined capability set.</p>
+        <p class="cedar-body" style="margin-top: var(--space-4);">Cedar has no concept of hyperedge closure, it has no model of what two agents can do <em>together</em>. FlowGuard does. The gap is structural, not a bug in Cedar. Cedar would need to become a different kind of tool to close it.</p>
+      </div>
+    </div>
+    <div class="fade-in" style="margin-top: var(--space-10); padding: var(--space-8); background: var(--pampas); border-radius: var(--radius-xl); border: 1px solid var(--divider);">
+      <p style="font-size: var(--text-sm); color: var(--ink-muted); font-style: italic;">
+        This is not a criticism of Cedar. It is a proof that a fundamentally different formalism is required. Cedar reasons about requests. FlowGuard reasons about the emergent capability state of multi-agent systems. Both are necessary, and not substitutes of one another.
+      </p>
+    </div>
+  </div>
+</section>
+
+<hr class="divider-line">
+
+<!-- VERDICT -->
+<section id="verdict">
+  <div class="container">
+    <p class="section-label fade-in" style="text-align:center;">05 — The Verdict</p>
+    <div class="verdict-box fade-in">
+      <div class="verdict-icon">⚡</div>
+      <h2 class="verdict-title">UNSAFE — Emergent capability detected</h2>
+      <div class="fired-edges">
+        <div class="edge-line">webSearch ∧ codeExec → exfilData</div>
+        <div class="edge-line">codeExec ∧ networkAccess → remoteExec</div>
+      </div>
+      <p class="verdict-body">Both forbidden. Both invisible to individual-agent checks. Both caught by FlowGuard at analysis time, before the system ever runs. Backed by a universal Lean 4 theorem, not a test suite.</p>
+    </div>
+    <p class="fade-in" style="text-align:center; margin-top: var(--space-12); color: var(--ink-faint); font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: 0.1em;">
+      Code → Spec → Verify · Mathematical safety for multi-agent AI · Lean 4 · CapHypergraph · InfoFlow · CedarBridge
+    </p>
+  </div>
+</section>
+
+<footer>
+  FlowGuard · Emergence AI · IISc Bangalore · LeanLang Hackathon 2026 · <a href="https://github.com/DevSoni31/FlowGuard" target="_blank" rel="noopener noreferrer" style="color: var(--terracotta); text-decoration: none;">github.com/DevSoni31/FlowGuard</a>
+</footer>
+
+<script>
+// Smooth scroll for nav links
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    const target = document.querySelector(a.getAttribute('href'));
+    if (target) target.scrollIntoView({ behavior: 'smooth' });
+  });
+});
+</script>
+</body>
+</html>

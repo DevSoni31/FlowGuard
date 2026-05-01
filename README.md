@@ -300,130 +300,157 @@ proof, that this is insufficient.
 
 ### Prerequisites
 
-You need two things installed before anything else.
+Two things need to be installed before anything else.
 
-**Lean 4 + elan** (for the proof layer):
-```bash
-curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh
-```
-The correct Lean toolchain is pinned in `lean-toolchain` at the repo root - `elan` reads
-this automatically and downloads the right version on the first `lake build`.
+**Lean 4 + elan** - Install from the [official Lean setup page](https://lean-lang.org/lean4/doc/setup.html)
+following the instructions for your operating system. `elan` (the Lean version manager) is
+installed alongside Lean and handles toolchain management automatically. The correct Lean
+toolchain for this project is pinned in `lean-toolchain` at the repo root - `elan` will
+read this file and switch to the right version without any manual intervention.
 
-**Python 3.11+ + uv** (for the PoC pipeline):
-```bash
-# Install uv (fast Python package manager)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Inside the repo - uv reads pyproject.toml and locks from uv.lock
-uv sync
-```
-`uv sync` installs all Python dependencies from `uv.lock` into an isolated virtual
-environment. You do not need to activate it - `uv run` handles that. The lock file is
-committed, so the environment is fully reproducible.
+**Python 3.11+** - Standard installation from [python.org](https://python.org). No special
+package manager is needed beyond the standard `venv` module that ships with Python.
 
 ---
 
-### Step 1 - Build the Lean proofs
+### Step 1 - Clone the repository and fetch the Lean cache
 
 ```bash
 git clone https://github.com/DevSoni31/FlowGuard.git
 cd FlowGuard
+```
+
+Before building, fetch the pre-compiled Mathlib cache. This is a one-time step that
+downloads already-compiled proof objects from the Lean cache server, avoiding a full
+Mathlib recompile from source (which would take several hours):
+
+```bash
+lean exe cache get
+```
+
+> ⏱️ **Time estimate:** approximately **30 minutes** on the first run, depending on your
+> network. On subsequent runs, the cache is already present and this step is instant.
+> If you skip this step, `lake build` will attempt to rebuild Mathlib from source and
+> will take considerably longer.
+
+---
+
+### Step 2 - Build the Lean proofs
+
+```bash
 lake build
 ```
+
+This compiles all six `.lean` files through the Lean 4 kernel. The kernel does not merely
+type-check - it reconstructs and verifies the full mathematical derivation of every
+theorem. If it completes without errors, every proof in the repository is mathematically
+guaranteed to be correct.
 
 **Expected output:**
 Build completed successfully (3304 jobs).
 
-> ⚠️ **Time estimate:** The first `lake build` downloads the Lean toolchain and Mathlib
-> caches before compiling. Expect **15-30 minutes** depending on your machine and network.
-> Subsequent builds with no `.lean` file changes are near-instant (all jobs are cached).
+> ⏱️ **Time estimate:** approximately **25 minutes** on the first run. On subsequent runs
+> with no `.lean` file changes, all 3304 jobs are cached and the build completes in seconds.
 
-This step is **mandatory before running the PoC**. The Python pipeline queries the Lean
-kernel at runtime; if the proofs have not been compiled, those queries will fail.
+> ⚠️ This step **must** complete successfully before running the PoC. The Python pipeline
+> sends live queries to the Lean kernel at runtime and resolves theorem statements directly
+> from the compiled `.lean` files. If the build has not run, those queries will fail.
 
 ---
 
-### Step 2 - Run the PoC pipeline
+### Step 3 - Set up the Python environment
+
+The PoC lives in the `poc/` subdirectory and has its own isolated Python environment.
 
 ```bash
-uv run analyze.py --demo --no-dashboard --mode ast --skip-lean
+cd poc
+python -m venv .venv
+```
+
+Activate the environment:
+
+```powershell
+# Windows - run this once to allow script execution, then activate
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+.venv\Scripts\activate
+```
+
+```bash
+# macOS / Linux
+source .venv/bin/activate
+```
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+The `requirements.txt` contains: `rich`, `google-genai`, `python-dotenv`, `requests`.
+These are all standard, well-maintained packages and install in under a minute.
+
+---
+
+### Step 4 - Run the PoC pipeline
+
+With the virtual environment active and the Lean build complete, run:
+
+```bash
+python analyze.py --demo --mode ast
 ```
 
 **What each flag does:**
 
 | Flag | Purpose |
 |---|---|
-| `--demo` | Runs the main capability-emergence demo (web agent + code exec agent) |
-| `--no-dashboard` | Skips the Rich terminal dashboard; prints clean output line-by-line |
-| `--mode ast` | Uses the AST (Abstract Syntax Tree) extractor - reads agent source code directly, no API key required |
-| `--skip-lean` | Skips re-running `lake build`; uses the already-compiled proof artifacts from Step 1 |
+| `--demo` | Runs the canonical capability-emergence scenario: `web_search_agent.py` + `code_exec_agent.py` |
+| `--mode ast` | Uses the AST (Abstract Syntax Tree) extractor - reads agent source code directly, requires no API key, runs fully offline |
 
-> ⏱️ **Time estimate:** The full PoC run takes approximately **30 minutes**. This includes
-> live Lean kernel queries, hyperedge closure computation, IFC checks, and theorem citation
-> resolution against the `.lean` source files.
+The pipeline will work through three phases: capability extraction from the agent source
+files, individual safety checks per agent, and finally composition analysis with hyperedge
+closure. At the end, it cites the exact Lean theorem covering each finding, with the
+theorem statement read live from the compiled `.lean` files - not hardcoded.
+
+> ⏱️ **Time estimate:** approximately **30 minutes** for the full run. The bulk of this
+> time is the live Lean kernel queries during verification.
 
 **Expected final output:**
 COMPOSITION RESULT - UNSAFE
 Emergent capability detected:
 webSearch ∧ codeExec → exfilData
 codeExec ∧ networkAccess → remoteExec
-
 Theorem cited: nonCompositionality_universal (CapHypergraph.lean)
+
+Once the pipeline finishes, the demo page (`flowguard-page.html`) will open automatically
+in your default browser - no server required. It presents the full FlowGuard story
+interactively: the problem, the proofs, the pipeline walkthrough, Cedar's structural blind
+spot, and the final verdict.
 
 ---
 
 ### Optional - LLM extraction mode
 
-The `--mode ast` flag is the default and recommended path for replication because it
-requires no external API key. If you have a Gemini API key available, you can switch to
-LLM mode for richer semantic capability inference:
+`--mode ast` is the recommended path for replication because it requires no external
+credentials and runs entirely offline. If you have a Gemini API key available, the LLM
+extraction mode provides richer semantic capability inference:
 
-1. Add your key to `.env`:
+1. Copy `.env.example` to `.env` at the repo root and add your key:
    GEMINI_API_KEY=your_key_here
 
-2. Pass `--mode llm` (or `--mode both` to run AST first and let the LLM refine):
+2. Pass `--mode llm` instead:
 ```bash
-uv run analyze.py --demo --no-dashboard --mode llm --skip-lean
+python analyze.py --demo --mode llm
 ```
 
-The `--mode both` option runs AST extraction first and passes those results to Gemini as
-a prior, which generally produces the most accurate capability spec.
-
----
-
-### Step 3 - Medical pipeline demo (bonus)
-
-The `--medical-demo` path exercises the information-flow control layer independently,
-demonstrating the `High → Medium → Low` transitive violation:
-
+Or use `--mode both`, which runs AST extraction first and passes those results to
+Gemini as a prior - this generally produces the most accurate capability spec:
 ```bash
-uv run analyze.py --medical-demo --no-dashboard --mode ast --skip-lean
+python analyze.py --demo --mode both
 ```
 
-This surfaces the distinction between `isTransitivelySafe` (endpoint check - passes) and
-`isHopwiseSafe` (per-hop check - fails), citing `transitive_safety_misses_intermediate`
-from `InfoFlow.lean`.
-
----
-
-### Repository layout
-
-```text
-FlowGuard/
-├── CapHypergraph.lean       # Layer 1: cap closure, fixed-point theory, universal non-compositionality
-├── InfoFlow.lean            # Layer 2: IFC lattice, parametric cascaded declassification, hopwise safety
-├── AgentProgram.lean        # Layer 3: Prog free monad, SafeProg, bridge to Layer 1
-├── FlowCheck.lean           # Layer 4: ValidPipeline, HopwiseValidPipeline, iff characterisation
-├── CedarBridge.lean         # Layer 5: Cedar policy definitions, incompleteness master theorem
-├── CedarIncompleteness.lean # Layer 6: cedar_blind_to_capsets, universal Cedar incompleteness
-├── Basic.lean               # Module entry point
-├── poc/analyze.py           # PoC pipeline - AST extractor, Lean queries, verdict engine
-├── pyproject.toml           # Python project metadata and dependencies
-├── uv.lock                  # Locked dependency tree (committed - ensures exact replication)
-├── lakefile.toml            # Lean project manifest (toolchain, dependencies, build targets)
-├── lean-toolchain           # Pins the exact Lean 4 toolchain version used
-└── poc/sample_agents/       # web_search_agent.py, code_exec_agent.py, medical_pipeline.py
-```
+The `--mode` flag is the only change required. Everything else - the Lean queries,
+hyperedge closure, theorem citations, and the dashboard - works identically across all
+three modes.
 
 ---
 
