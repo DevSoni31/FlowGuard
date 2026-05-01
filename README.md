@@ -4,12 +4,18 @@
 
 FlowGuard is a Lean 4 formalization of a fundamental and underappreciated problem in AI
 safety: *an AI pipeline can be dangerous even when every agent inside it is individually
-safe.* We prove this across six independent layers — capability hypergraphs, information-flow
-control, a free monad model of agent programs, a unified safety certificate, Cedar
-incompleteness, and a bridge between the operational and declarative models — and unify
-them into a single compile-time safety certificate.
+safe.* We prove this across six layers — capability hypergraphs, information-flow control,
+a free monad model of agent programs, a unified safety certificate, Cedar incompleteness,
+and a structural impossibility result — and unify them into a single compile-time safety
+certificate verified by the Lean kernel.
 
-All ~100 theorems are fully kernel-checked. There are **zero `sorry`s**.
+Alongside the proofs, FlowGuard ships a Python proof-of-concept pipeline that reads real
+agent source files, infers capability specifications dynamically (either from AST analysis
+or via an LLM), runs the same hyperedge-closure and IFC checks implemented in the Lean
+proofs, and then cites the exact theorem covering each finding — reading the theorem text
+live from the compiled `.lean` files, not from any hardcoded strings.
+
+All theorems are fully kernel-checked. There are **zero `sorry`s**.
 
 ---
 
@@ -75,32 +81,91 @@ lake build
 
 ## Architecture
 
+### Lean Proof Layers
+
 ```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│  CedarBridge.lean + CedarIncompleteness.lean                            │
-│  Layers 5 & 6: Cedar is sound but incomplete for multi-agent pipelines  │
-└────────────────────────────────┬────────────────────────────────────────┘
-                                 │
-              ┌──────────────────▼──────────────────────┐
-              │  FlowCheck.lean                          │
-              │  Layer 4: ValidPipeline +                │
-              │  HopwiseValidPipeline unified cert.      │
-              └──────────────┬───────────────┬───────────┘
-                             │               │
-          ┌──────────────────▼───┐   ┌───────▼──────────────────┐
-          │  CapHypergraph.lean  │   │  InfoFlow.lean            │
-          │  Layer 1: cap        │   │  Layer 2: IFC lattice,    │
-          │  closure, fixed-     │   │  cascaded declassif.,     │
-          │  point theory,       │   │  hopwise vs transitive    │
-          │  universal non-      │   │  safety hierarchy         │
-          │  compositionality    │   └──────────────────────────-┘
-          └──────────┬───────────┘
-                     │
-          ┌──────────▼────────────────┐
-          │  AgentProgram.lean        │
-          │  Layer 3: Prog free monad │
-          │  SafeProg, bridge to L1   │
-          └───────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────┐
+│  CedarIncompleteness.lean  (Layer 6)                                       │
+│  Structural impossibility: no Cedar policy can be complete for pipelines   │
+│  Key: cedar_blind_to_capsets, cedar_incomplete_universally,                │
+│       cedar_capability_separation, joint_closure_strictly_larger           │
+└───────────────────────────┬────────────────────────────────────────────────┘
+                                          │ imports
+┌───────────────────────────▼────────────────────────────────────────────────┐
+│  CedarBridge.lean  (Layer 5)                                               │
+│  Concrete counterexample: Cedar denies ∧ FlowGuard detects emergence       │
+│  Key: cedar_nonCompositionality_gap, cedar_ifc_gap, cedar_is_incomplete,   │
+│       cedarAware_strictly_weaker                                            │
+└───────────────────────────┬────────────────────────────────────────────────┘
+                                          │ imports
+┌───────────────────────────▼────────────────────────────────────────────────┐
+│  FlowCheck.lean  (Layer 4)                                                 │
+│  Unified certificate: ValidPipeline ↔ capSafe ∧ ifcSafe (biconditional)   │
+│  Key: validPipeline_iff, flowguard_sound, flowguard_complete,              │
+│       hopwiseValidPipeline_full_certificate, validPipeline_hierarchy       │
+└────────────────┬──────────────────────────────────────┬────────────────────┘
+                         │ imports                               │ imports
+┌────────────────▼───────────────────┐   ┌──────────────▼────────────────────┐
+│  CapHypergraph.lean  (Layer 1)     │   │  InfoFlow.lean  (Layer 2)          │
+│  Hyperedge closure, fixed-point    │   │  IFC lattice, cascaded declassif., │
+│  theory, universal non-            │   │  hopwise vs transitive safety      │
+│  compositionality, safe-region     │   │  hierarchy, parametric IFC theorem │
+│  Moore family structure            │   └───────────────────────────────────-┘
+└────────────────────────────────────┘
+               ▲
+               │ bridge: safeProg_implies_capSafe_empty_edges
+┌─────────┴──────────────────────────┐
+│  AgentProgram.lean  (Layer 3)      │
+│  Prog free monad, SafeProg,        │
+│  program-level ↔ contract-level    │
+│  separation of concerns            │
+└────────────────────────────────────┘
+```
+
+### Python PoC Pipeline
+
+```text
+   agent1.py, agent2.py, ...
+            │
+            ▼
+   ┌─────────────────────────────────────────────────────────────────────┐
+   │  extractor.py                                                        │
+   │  Mode: ast  → Python AST walk, regex, filename heuristics           │
+   │  Mode: llm  → Gemini 2.0 Flash semantic inference                   │
+   │  Mode: both → AST first; LLM refines with AST as prior              │
+   │  Output: AgentSpec {name, base: Set[Cap], forbidden: Set[Cap],      │
+   │          data_label: Label, pipeline_channels: List[Channel]}       │
+   └──────────────────────────┬──────────────────────────────────────────┘
+                                           │
+                                           ▼
+   ┌─────────────────────────────────────────────────────────────────────┐
+   │  verifier.py + hyperedges.py                                        │
+   │  · isCapSafe: per-agent check (mirrors CapHypergraph.isCapSafe)    │
+   │  · cap_closure: fixed-point iteration (mirrors capClosure)          │
+   │  · is_transitively_safe / is_hopwise_safe (mirrors InfoFlow)        │
+   │  · cedar_team_eval: Cedar simulation (mirrors CedarBridge)          │
+   │  Output: full result dict — verdict, fired edges, IFC flags,        │
+   │          Cedar comparison, theorem citations                         │
+   └──────────────────────────┬──────────────────────────────────────────┘
+                                           │
+                                           ▼
+   ┌─────────────────────────────────────────────────────────────────────┐
+   │  lean_bridge.py                                                     │
+   │  · run_lake_build(): invokes `lake build`, streams output           │
+   │  · verify_demo_in_lean(): evaluates #eval / #check in Lean kernel   │
+   │  · extract_theorems(): regex-parses *.lean → theorem name +         │
+   │    statement (live, not hardcoded)                                  │
+   │  · get_all_theorems(): indexes all 6 files at startup               │
+   └──────────────────────────┬──────────────────────────────────────────┘
+                                           │
+                                           ▼
+   ┌─────────────────────────────────────────────────────────────────────┐
+   │  analyze.py                                                         │
+   │  Terminal reporter — Rich panels, three-phase output, theorem       │
+   │  citations with live statement text read from compiled .lean files  │
+   │  Flags: --demo, --medical-demo, --mode [ast|llm|both],             │
+   │         --skip-lean, --no-dashboard                                 │
+   └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -153,6 +218,18 @@ premises alone, together they do, and the conclusion is forbidden for one.
 | `safeRegion_closed_under_intersection` | The intersection of two safe base sets is safe |
 | `compose_forbidden_union_justified` | Union of forbidden sets is the correct semantics for composition |
 
+The safe-region theorems establish that the set of all safe agent base-sets forms a
+**Moore family** (closed under intersection, downward-closed). This is a structural result
+independent of any specific hyperedge configuration: no matter what capabilities exist,
+the safe region always has this algebraic shape. This means that safety can in principle
+be characterised by its boundary — the set of maximal safe base-sets — and this boundary
+is unique and computable.
+
+`coalition_nonCompositionality_universal` extends the pairwise result to **any finite
+coalition**: if any dangerous pair exists within a list of agents, the entire coalition
+is unsafe. This is the theorem the PoC invokes when more than two agents are passed on
+the command line.
+
 ---
 
 ## Layer 2 — Information-Flow Control (`InfoFlow.lean`)
@@ -200,6 +277,21 @@ structural.
 The two checks are **genuinely incomparable** — neither implies the other, proven by
 witnesses in both directions. Both are required for a maximally certified pipeline.
 
+The incomparability of `isTransitivelySafe` and `isHopwiseSafe` is one of the most
+practically significant results in the project. It means:
+
+- A pipeline that **passes** the transitive endpoint check can still have a dangerous
+   intermediate hop — `transitive_safety_misses_intermediate` proves this with a concrete
+   witness.
+- A pipeline that **passes** every individual hop check can still have insecure endpoints
+   — `hopwise_safe_not_implies_transitive_safe` proves this in the other direction.
+
+The `--medical-demo` path in the PoC exercises exactly the first case: `isTransitivelySafe`
+returns `true` (the endpoints look fine), but `isHopwiseSafe` returns `false` (the
+`High → Medium → Low` intermediate hop violates the lattice). This is the distinction
+between a policy audit that only checks source and destination versus one that inspects
+every data-sharing hop independently.
+
 ---
 
 ## Layer 3 — Agent Programs as Free Monads (`AgentProgram.lean`)
@@ -220,6 +312,20 @@ as a **free monad**, directly inspired by Prof. Gadgil's `FileM` in
 | `searchProg_safe` | A web-search-only program is safe for `webAgent` |
 | `exfilProg_unsafe` | A search-then-exfiltrate program is **not** safe for `webAgent` |
 
+### The Free Monad Model
+
+`Prog` is a **free monad** over `AgentEffect` — the standard way to represent effectful
+programs as pure data structures in functional programming and type theory. A `Prog`
+value is either a pure return value or an effect constructor (`WebSearch`, `CodeExec`,
+`ReadDB`, `SendEmail`, `ExfilData`) paired with a continuation. This representation
+allows us to reason about what a program *does* (its effects) without ever running it.
+
+`SafeProg` is an inductive safety predicate over the `Prog` tree. It is defined by
+recursion on the structure of the program: a `pure` computation is always safe, and
+an `effect f k` computation is safe if the effect's capability is in `contract.base ∖
+contract.forbidden` and every continuation `k a` is also safe. The result is a
+**compositional**, program-level safety certificate.
+
 ### Bridge to Layer 1
 
 | Theorem | Plain English |
@@ -227,7 +333,14 @@ as a **free monad**, directly inspired by Prof. Gadgil's `FileM` in
 | `safeProg_caps_in_base` | Every effect in a SafeProg-safe program uses only caps in `contract.base` |
 | `safeProg_base_forbidden_disjoint` | Every used cap is in `base \ forbidden` |
 | `safeProg_implies_capSafe_empty_edges` | **Adequacy:** SafeProg-safe + disjoint contract → `isCapSafe [] = true` |
-| `safeProg_does_not_imply_capSafe` | **Independence:** SafeProg is a program-level check; `isCapSafe` is a contract-level check. Both are needed. |
+| `safeProg_does_not_imply_capSafe` | **Independence:** SafeProg is a program-level check; `isCapSafe` is a contract-level check — both are needed and neither implies the other in general |
+
+`safeProg_does_not_imply_capSafe` is a *separation of concerns* theorem. It says that
+even a provably-safe program (per `SafeProg`) can be deployed in a context where the
+hyperedge environment causes capability emergence — the program itself is fine, but
+the *composition* of the environment with the program's contract is not. Layer 3 is
+therefore not a replacement for Layer 1; it is a complementary check at a different
+level of abstraction.
 
 ---
 
@@ -249,6 +362,19 @@ a **compile-time guarantee**, not a runtime check.
 | `validPipeline_reject_ifcUnsafe` | Any downward net flow → no certificate exists |
 | `trustedPipeline_valid` | A concrete pipeline **does** receive a full certificate |
 
+`validPipeline_iff` is the only biconditional theorem in the project. Every other layer
+proves one direction (safety implies some property, or some property implies unsafety).
+Layer 4 closes the loop: `ValidPipeline P ↔ capSafe ∧ ifcSafe` means the certificate
+is **both sound** (no false approvals) **and complete** (no false rejections for pipelines
+that genuinely satisfy both conditions). This is the mathematical content of "compile-time
+guarantee": if your pipeline builds with a `ValidPipeline` certificate, it is provably
+safe; if it does not build, it is provably not certifiable under the current spec.
+
+`trustedPipeline_valid` is the existence proof — it shows that safe pipelines are not an
+empty class. A concrete pipeline that satisfies both conditions is constructed and its
+certificate is machine-checked, confirming the system is neither vacuously sound (no
+pipeline ever passes) nor vacuously complete (every pipeline passes).
+
 ### The Strongest Certificate — `HopwiseValidPipeline`
 
 `ValidPipeline` enforces transitive IFC, which checks only the pipeline's two endpoints.
@@ -263,23 +389,198 @@ also respect the security lattice.
 
 ---
 
-## Layers 5 & 6 — Cedar Incompleteness (`CedarBridge.lean` + `CedarIncompleteness.lean`)
+## Layer 5 — Cedar Concrete Counterexample (`CedarBridge.lean`)
 
-**The idea:** Cedar is Amazon's production authorization language — formally verified, used
-in AWS, and the current state of the art in deployed AI access control. Cedar is *sound*:
-it correctly enforces what it is designed to enforce. FlowGuard proves Cedar is
-*incomplete* for multi-agent pipelines: its request model has no concept of capability
-emergence or transitive information flow. These are **structural gaps in Cedar's threat
-model**, not bugs.
+**The idea:** Cedar is Amazon's production authorization language — formally verified,
+used in AWS, and the current state of the art in deployed AI access control. `CedarBridge`
+defines a minimal but faithful embedding of Cedar's evaluation model — `CedarPolicy`,
+`CedarRequest`, `CedarDecision`, `cedarEval` — and then constructs **concrete Cedar
+policies** for the demo agents. It proves that Cedar is *sound*: the policies it writes
+correctly deny what they are supposed to deny. Then it proves the critical gap: Cedar's
+correct denial for each individual agent is *not sufficient* to detect that the composed
+team can exfiltrate data.
 
 | Theorem | Plain English |
 |---|---|
-| `cedar_blind_to_capsets` | Two agents with the same name are Cedar-indistinguishable on any request — the blindness is enforced by type |
-| `cedar_nonCompositionality_gap` | Cedar approves both agents; FlowGuard proves `exfilData ∈ capClosure(webAgent ∪ execAgent)` |
-| `cedar_incomplete_universally` | **Universal form:** for any agents where composition is unsafe, Cedar cannot detect the emergent cap |
-| `cedar_ifc_gap` | Cedar approves every hop in the medical pipeline; FlowGuard proves the transitive flow is unsafe |
-| `cedar_is_incomplete` | **Master result:** Cedar is sound but incomplete — both gaps machine-checked simultaneously |
+| `cedar_nonCompositionality_gap` | Cedar denies exfilData for every individual principal ∧ FlowGuard proves the composed team has exfilData in its closure |
+| `cedar_ifc_gap` | Cedar approves every hop in the medical pipeline ∧ FlowGuard proves the transitive flow is insecure |
+| `cedar_is_incomplete` | **Master result:** Cedar is sound but incomplete — both gaps checked simultaneously |
 | `cedarAware_strictly_weaker` | Cedar approves the pipeline; FlowGuard rejects it — FlowGuard is strictly stronger |
+
+`cedar_is_incomplete` is a **conjunction**: it proves both the capability-emergence gap
+and the IFC gap in a single theorem. This is the "master" Cedar result — the one that
+would appear in a paper abstract.
+
+---
+
+## Layer 6 — Cedar Structural Impossibility (`CedarIncompleteness.lean`)
+
+**The idea:** `CedarBridge` showed Cedar *fails* on the concrete examples. `CedarIncompleteness`
+proves *why Cedar must fail* — not because of any specific policy choice, but because of
+a fundamental mismatch between Cedar's input model and the information required for pipeline
+safety analysis.
+
+The argument has three steps, each formalised as a theorem:
+
+1. **Cedar is request-local** — `cedar_is_request_local` and `cedar_request_determines_decision`
+    establish that Cedar's decision depends only on `(principal, action, resource)`. No Cedar
+    policy can inspect a `Finset Cap` or a `List HyperEdge`. This is enforced at the **type
+    level**: `CedarPolicy := CedarRequest → CedarDecision`.
+
+2. **Capability closure is not request-local** — `emergence_requires_joint_inspection` and
+    `joint_closure_strictly_larger` prove that whether `exfilData` emerges requires inspecting
+    the *joint* base capability set of both agents together. This information is not encoded in
+    any individual `CedarRequest`.
+
+3. **Therefore Cedar cannot be complete** — `cedar_incomplete_universally` and
+    `cedar_capability_separation` prove that for *any* Cedar policy, there exists an unsafe
+    composition it cannot detect.
+
+| Theorem | Plain English |
+|---|---|
+| `cedar_is_request_local` | Cedar's decision is a pure function of the request — type-enforced |
+| `cedar_request_determines_decision` | Same (principal, action, resource) → same decision, always |
+| `cedar_blind_to_capsets` | Two agents sharing a principal name are Cedar-indistinguishable on any request — the blindness is not a policy gap, it is enforced by the type of `CedarPolicy` |
+| `cedar_capability_separation` | FlowGuard gives different verdicts for webAgent alone vs webAgent+execAgent; Cedar gives identical decisions — this is the separation theorem |
+| `joint_closure_strictly_larger` | `exfilData ∉ closure(webAgent)` ∧ `exfilData ∉ closure(execAgent)` ∧ `exfilData ∈ closure(webAgent ∪ execAgent)` — the information gap in one theorem |
+| `emergence_requires_joint_inspection` | You cannot detect capability emergence by inspecting agents one at a time |
+| `closure_union_ge_union_closures` | `closure(A) ∪ closure(B) ⊆ closure(A ∪ B)` — monotonicity of composition |
+| `cedar_incomplete_universally` | For any agents where composition is unsafe, no Cedar policy can detect it |
+
+The comment in the source is worth quoting directly: *"This is not a criticism of Cedar.
+Cedar is designed for per-request authorization. It is a theorem about the fundamental
+mismatch between Cedar's input model and the information required for pipeline safety."*
+
+---
+
+## The PoC Pipeline — How It Works
+
+The Python PoC is not a reimplementation of the Lean proofs in Python. It is a
+**dynamic front-end** that: (a) reads real agent source files and infers their capability
+specifications, (b) runs the same logical checks as the Lean formalisation using a Python
+implementation of the same algorithms, and (c) queries the compiled Lean files at runtime
+to cite the exact theorem — with its verbatim statement text — that covers each finding.
+
+### Capability Extraction (`extractor.py`)
+
+The extractor infers an `AgentSpec` from a Python source file. It operates in three modes:
+
+- **`ast` mode** — walks the Python AST, matches function calls and attribute access
+   patterns (e.g., `requests.get(...)` → `webSearch`, `subprocess.run(...)` → `codeExec`,
+   `smtplib.SMTP(...)` → `sendEmail`), and applies filename heuristics as a secondary
+   signal. Fully offline; no credentials required.
+- **`llm` mode** — sends the source file to Gemini 2.0 Flash with a structured prompt
+   requesting a JSON `AgentSpec`. Produces richer semantic inference (catches higher-level
+   patterns that AST walks miss), but requires a `GEMINI_API_KEY` in `.env`.
+- **`both` mode** — runs AST extraction first, passes the result as a structured prior
+   into the LLM prompt, and merges the outputs. This is the most accurate mode because the
+   LLM receives concrete AST evidence to confirm or expand.
+
+The extractor also infers `pipeline_channels` for the IFC layer: a list of
+`(src_label, dst_label)` tuples representing data-sharing steps in the agent file.
+
+### Verification Engine (`verifier.py` + `hyperedges.py`)
+
+`hyperedges.py` implements the core algorithms as a direct mirror of the Lean formalisation:
+
+| Python function | Lean theorem it mirrors |
+|---|---|
+| `cap_closure(edges, base)` | `capClosure` fixed-point iteration (CapHypergraph) |
+| `is_cap_safe(edges, agent)` | `isCapSafe` (CapHypergraph) |
+| `compose_list(agents)` | `compose` + `coalition_nonCompositionality_universal` (CapHypergraph) |
+| `get_fired_edges(edges, agent)` | hyperedge premise check (CapHypergraph) |
+| `is_transitively_safe(channels)` | `isTransitivelySafe` (InfoFlow) |
+| `is_hopwise_safe(channels)` | `isHopwiseSafe` (InfoFlow) |
+| `cedar_team_eval(cap, policies)` | `cedarEval` (CedarBridge) |
+
+`verifier.py` orchestrates the three-phase check: individual safety per agent, composition
+with hyperedge closure, and Cedar comparison. It produces a structured result dict that is
+consumed by both the terminal reporter (`analyze.py`) and the HTML dashboard.
+
+The hyperedge library (`HYPEREDGE_LIBRARY` in `hyperedges.py`) is **not hardcoded to the
+demo agents**. It is a general-purpose library of capability interaction rules. Running the
+PoC on any Python agent file will apply the same closure rules to whatever capabilities the
+extractor infers — the demo is just a concrete entry point into a general system.
+
+### Live Lean Bridge (`lean_bridge.py`)
+
+This is what makes the PoC dynamic rather than a static display:
+
+- **`extract_theorems(lean_file)`** — reads a compiled `.lean` file with a regex over
+   theorem/lemma declarations, extracting name, statement text (up to 400 characters), and
+   the preceding docstring. This runs against the actual source files in the repo, not a
+   cached snapshot.
+- **`get_all_theorems()`** — indexes all 6 `.lean` files at startup, building a dict
+   `{filename: [theorem_dicts]}`.
+- **`verify_demo_in_lean()`** — writes a temporary `.lean` file containing `#eval` and
+   `#check` calls, invokes `lake env lean` as a subprocess, and matches the Lean kernel's
+   output against expected values. This is a live round-trip: the kernel re-evaluates
+   `isCapSafe demoEdges webAgent`, `isCapSafe demoEdges (compose webAgent execAgent)`,
+   and `cedarEval teamPolicy {...}` from scratch on every run.
+
+When the terminal output says `↑ text read directly from CapHypergraph.lean`, it means
+exactly that: the theorem statement was parsed from the file on disk in that run, not
+retrieved from any database or hardcoded string in the Python source.
+
+### Running on Your Own Agents
+
+The `--demo` flag is a shorthand for two specific files in `poc/sample_agents/`. The PoC
+accepts any Python files directly:
+
+```bash
+python analyze.py your_agent.py another_agent.py --mode ast --skip-lean
+```
+
+For each file, the extractor will attempt to infer its capability spec. Files that use
+standard Python networking, subprocess, database, or email libraries will generally
+produce useful specs in `ast` mode. Files with more abstract logic benefit from `llm` or
+`both` mode.
+
+### Completeness of the Current Lean Formalisation
+
+The six Lean files constitute a **complete, self-contained formalization** of the following
+claims:
+
+| Claim | Lean status |
+|---|---|
+| Capability emergence is a real, formalizable phenomenon | ✓ Constructive counterexample (`nonCompositionalityCounterexample`) |
+| The non-compositionality result is universal (not example-specific) | ✓ `nonCompositionality_universal`, `coalition_nonCompositionality_universal` |
+| The safe region has algebraic structure (Moore family) | ✓ `safeRegion_downward_closed`, `safeRegion_closed_under_intersection` |
+| IFC local approval does not imply global security | ✓ `nonInterference_nonCompositional`, `cascaded_declassification_parametric` |
+| Transitive and hopwise safety are genuinely incomparable | ✓ Witnesses in both directions |
+| There exists a unified compile-time safety certificate | ✓ `validPipeline_iff` (biconditional) |
+| The certificate is both sound and complete | ✓ `flowguard_sound` + `flowguard_complete` |
+| The strongest certificate (`HopwiseValidPipeline`) is strictly stronger | ✓ Hierarchy witness |
+| Cedar is incomplete for multi-agent pipelines | ✓ `cedar_is_incomplete` (concrete) |
+| Cedar's incompleteness is structural and universal | ✓ `cedar_incomplete_universally` (universal) |
+
+There are **no `sorry`s**, no admitted axioms beyond Lean's standard kernel, and no
+theorems stated without proof. Every result compiles clean.
+
+### Extending the PoC
+
+The current PoC is a solid foundation for more complex versions. Natural next steps include:
+
+- **New hyperedge rules** — adding entries to `HYPEREDGE_LIBRARY` in `hyperedges.py`
+   immediately extends the capability interaction model without any change to the verifier
+   or bridge. New rules should ideally be mirrored by a corresponding theorem in `CapHypergraph.lean`.
+- **New agent types** — adding a new Python file to `poc/sample_agents/` and running it
+   through the extractor. The system handles coalitions of arbitrary size via `compose_list`.
+- **Richer IFC labelling** — the current IFC layer uses a three-level lattice
+   (`low < medium < high`). Extending `InfoFlow.lean` to a four-level or lattice-ordered
+   poset would require updating `is_transitively_safe` and `is_hopwise_safe` in `hyperedges.py`
+   to match.
+- **LLM-based hyperedge inference** — rather than a fixed library, a future version could
+   prompt an LLM to propose candidate hyperedges from the agent descriptions, then verify
+   the proposed edges against the Lean closure theorems.
+- **Automated Lean proof generation** — `lean_bridge.py` already writes and evaluates
+   temporary `.lean` files. A natural extension would generate a fresh `#eval` check for
+   each new composition at runtime, making the Lean verification truly dynamic rather than
+   limited to the five pre-defined `DEMO_CHECKS`.
+- **Integration with real orchestration frameworks** — `extractor.py` currently reads
+   standalone Python files. Adding parsers for LangChain agent definitions, AutoGen
+   `ConversableAgent` configs, or CrewAI task YAML files would make FlowGuard applicable
+   to production multi-agent deployments without any change to the core verification logic.
 
 ---
 
@@ -293,6 +594,14 @@ proof, that this is insufficient.
 - **Multi-agent orchestration platforms** (LangChain, AutoGen, CrewAI) need pipeline-level safety analysis, not just per-agent evaluation.
 - **Production authorization languages** (Cedar, OPA, RBAC) have structural blind spots for emergent capabilities — FlowGuard proves this, not merely argues it.
 - **Formal verification** of AI systems is tractable today — the proofs in this repository compile, are machine-checked, and can be extended.
+- **The PoC demonstrates production tractability** — FlowGuard's verification pipeline
+   runs on real Python agent source files today, infers capability specifications without
+   manual annotation, and cites machine-checked theorems against its findings. This is not
+   a research prototype requiring a PhD to operate.
+- **Dynamic theorem citation bridges formal and operational** — the PoC reads theorem
+   statement text live from the compiled `.lean` files on each run. Every verdict is
+   traceable to a specific line of machine-checked mathematics, not to a hardcoded string
+   in the analysis tool.
 
 ---
 
@@ -350,7 +659,7 @@ guaranteed to be correct.
 Build completed successfully (3304 jobs).
 
 > ⏱️ **Time estimate:** approximately **25 minutes** on the first run. On subsequent runs
-> with no `.lean` file changes, all 3304 jobs are cached and the build completes in seconds.
+> with no `.lean` file changes, all 3304 jobs are cached and the build completes in about 5-10 minutes.
 
 > ⚠️ This step **must** complete successfully before running the PoC. The Python pipeline
 > sends live queries to the Lean kernel at runtime and resolves theorem statements directly
@@ -458,23 +767,50 @@ three modes.
 
 | Theorem | File | What it proves |
 |---|---|---|
-| `nonCompositionalityCounterexample` | CapHypergraph | webAgent safe ∧ execAgent safe ∧ composition unsafe |
-| `nonCompositionality_universal` | CapHypergraph | ∀ edges, agents satisfying structural premises → composition unsafe |
-| `coalition_nonCompositionality_universal` | CapHypergraph | ∀ agent lists, any dangerous pair poisons the coalition |
-| `capClosure_is_fixpoint` | CapHypergraph | step(capClosure(S)) = capClosure(S) |
-| `capClosure_is_least_fixpoint` | CapHypergraph | capClosure is the smallest closed superset |
-| `compose_forbidden_union_justified` | CapHypergraph | Union of forbidden sets is the correct composition semantics |
+| `capClosure_mono` | CapHypergraph | S ⊆ T → capClosure(S) ⊆ capClosure(T) |
+| `capClosure_extensive` | CapHypergraph | S ⊆ capClosure(S) — base caps always survive |
+| `capClosure_is_fixpoint` | CapHypergraph | step(capClosure(S)) = capClosure(S) — convergence |
+| `capClosure_is_least_fixpoint` | CapHypergraph | capClosure is the **smallest** closed superset |
+| `webAgent_is_safe` | CapHypergraph | Web-search agent alone cannot exfiltrate |
+| `execAgent_is_safe` | CapHypergraph | Code-execution agent alone cannot exfiltrate |
+| `composedTeam_is_unsafe` | CapHypergraph | Composed team: `exfilData` enters closure |
+| `nonCompositionalityCounterexample` | CapHypergraph | Both safe individually ∧ unsafe together (concrete) |
+| `nonCompositionality_exists` | CapHypergraph | ∃-form: there exist edges and agents where safety fails to compose |
+| `nonCompositionality_universal` | CapHypergraph | ∀-form: for any edges and agents fitting structural premises, composition is unsafe |
+| `coalition_nonCompositionality_universal` | CapHypergraph | ∀ agent lists: any dangerous pair poisons the whole coalition |
+| `safeRegion_downward_closed` | CapHypergraph | Smaller base set → at least as safe |
+| `safeRegion_closed_under_intersection` | CapHypergraph | Intersection of two safe base sets is safe (Moore family) |
+| `compose_forbidden_union_justified` | CapHypergraph | Union of forbidden sets is correct composition semantics |
 | `nonInterference_nonCompositional` | InfoFlow | All local hops approved ∧ transitive flow globally unsafe |
+| `localApproval_not_transitive` | InfoFlow | ∃-form: local approval fails to compose |
+| `secureFlow_transitive` | InfoFlow | The global security lattice IS transitive — the flaw is in local policy |
+| `insecure_flows_characterised` | InfoFlow | Complete characterisation: exactly 3 downward flows are insecure |
 | `cascaded_declassification_parametric` | InfoFlow | ∀ policies approving a downward two-hop chain → compositionally dangerous |
+| `medical_hops_dangerous_for_any_policy` | InfoFlow | Even a maximally restrictive two-hop policy is provably dangerous |
+| `transitive_safety_misses_intermediate` | InfoFlow | ∃ pipeline: `isTransitivelySafe = true` yet `isHopwiseSafe = false` |
+| `hopwise_safe_not_implies_transitive_safe` | InfoFlow | ∃ pipeline: `isHopwiseSafe = true` yet `isTransitivelySafe = false` |
 | `isTransitivelySafe_only_checks_endpoints` | InfoFlow | ∀ good-endpoint pipelines pass transitive check regardless of middle |
-| `safeProg_implies_capSafe_empty_edges` | AgentProgram | SafeProg-safe + disjoint contract → isCapSafe [] = true |
-| `safeProg_does_not_imply_capSafe` | AgentProgram | SafeProg and isCapSafe are independent (correct separation of concerns) |
-| `validPipeline_iff` | FlowCheck | ValidPipeline P ↔ capSafe ∧ ifcSafe |
-| `hopwiseValidPipeline_full_certificate` | FlowCheck | Three-way certificate: cap + hopwise + transitive |
-| `validPipeline_hierarchy` | FlowCheck | HopwiseValidPipeline → ValidPipeline, not vice versa |
+| `hopwise_is_necessary_for_intermediate_safety` | InfoFlow | Only `isHopwiseSafe` catches interior violations |
+| `bindSafe` | AgentProgram | SafeProg is closed under monadic bind |
+| `safeProg_implies_capSafe_empty_edges` | AgentProgram | SafeProg-safe + disjoint contract → `isCapSafe [] = true` |
+| `safeProg_does_not_imply_capSafe` | AgentProgram | SafeProg and isCapSafe are independent checks (separation of concerns) |
+| `validPipeline_iff` | FlowCheck | `ValidPipeline P ↔ capSafe ∧ ifcSafe` — biconditional certificate |
+| `flowguard_sound` | FlowCheck | `ValidPipeline P` → both guarantees hold |
+| `flowguard_complete` | FlowCheck | Both guarantees hold → construct a `ValidPipeline` certificate |
+| `trustedPipeline_valid` | FlowCheck | A concrete pipeline **does** receive a full certificate |
+| `hopwiseValidPipeline_full_certificate` | FlowCheck | Three-way certificate: cap + hopwise IFC + transitive IFC |
+| `validPipeline_hierarchy` | FlowCheck | `HopwiseValidPipeline → ValidPipeline`, not vice versa |
+| `cedar_is_request_local` | CedarIncompleteness | Cedar's decision is a pure function of the request — type-enforced |
 | `cedar_blind_to_capsets` | CedarIncompleteness | Same-name agents are Cedar-indistinguishable on any request |
-| `cedar_incomplete_universally` | CedarIncompleteness | ∀ agents where composition is unsafe, Cedar cannot detect it |
-| `cedar_is_incomplete` | CedarBridge | Cedar is sound but incomplete — both gaps machine-checked |
+| `cedar_capability_separation` | CedarIncompleteness | FlowGuard gives different verdicts for webAgent vs composed team; Cedar gives identical decisions |
+| `joint_closure_strictly_larger` | CedarIncompleteness | `exfilData` absent from individual closures but present in joint closure |
+| `emergence_requires_joint_inspection` | CedarIncompleteness | Cannot detect capability emergence by inspecting agents one at a time |
+| `closure_union_ge_union_closures` | CedarIncompleteness | `closure(A) ∪ closure(B) ⊆ closure(A ∪ B)` — monotonicity |
+| `cedar_incomplete_universally` | CedarIncompleteness | ∀ agents where composition is unsafe, no Cedar policy can detect it |
+| `cedar_nonCompositionality_gap` | CedarBridge | Cedar denies ∧ FlowGuard detects emergence — concrete gap |
+| `cedar_ifc_gap` | CedarBridge | Cedar approves every medical hop ∧ FlowGuard proves transitive flow insecure |
+| `cedar_is_incomplete` | CedarBridge | Cedar is sound but incomplete — both gaps machine-checked simultaneously |
+| `cedarAware_strictly_weaker` | CedarBridge | Cedar approves pipeline; FlowGuard rejects it — FlowGuard strictly stronger |
 
 ---
 
