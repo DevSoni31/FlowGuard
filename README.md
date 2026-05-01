@@ -834,6 +834,7 @@ proof, that this is insufficient.
 
 ## Acknowledgements
 
+This project was made possible by:
 **Emergence AI** — Hackathon sponsor  
 **Emergence India Labs** — Event organizer and research direction  
 **Indian Institute of Science (IISc), Bangalore** — Academic partner, hackathon co-design, tutorials, and mentorship
@@ -848,5 +849,4 @@ proof, that this is insufficient.
 
 ---
 
-> "The question is not whether individual AI agents are safe.  
-> The question is whether their composition is."
+>The question is not whether individual AI agents are safe. The question is whether their composition is.
