@@ -156,6 +156,7 @@ def launch_dashboard():
         console.print(f"[yellow]⚠ Dashboard page not found at {html_path}[/]")
         console.print("[dim]Expected location: poc/templates/flowguard-page.html[/]")
         return
+    input("\n  Press Enter to open the summary page in your browser...")
     webbrowser.open(html_path.as_uri())
     console.print(f"\n[bold cyan]Dashboard opened in browser.[/]")
     console.print(f"[dim]({html_path})[/]")

@@ -230,7 +230,7 @@ Mathlib recompile from source (which would take several hours):
 lean exe cache get
 ```
 
-> ⏱️ **Time estimate:** approximately **30 minutes** on the first run, depending on your
+> **Time estimate:** approximately **30 minutes** on the first run, depending on your
 > network. On subsequent runs, the cache is already present and this step is instant.
 > If you skip this step, `lake build` will attempt to rebuild Mathlib from source and
 > will take considerably longer.
@@ -251,10 +251,10 @@ guaranteed to be correct.
 **Expected output:**
 Build completed successfully (3304 jobs).
 
-> ⏱️ **Time estimate:** approximately **25 minutes** on the first run. On subsequent runs
+> **Time estimate:** approximately **25 minutes** on the first run. On subsequent runs
 > with no `.lean` file changes, all 3304 jobs are cached and the build completes in about 5-10 minutes.
 
-> ⚠️ This step **must** complete successfully before running the PoC. The Python pipeline
+> This step **must** complete successfully before running the PoC. The Python pipeline
 > sends live queries to the Lean kernel at runtime and resolves theorem statements directly
 > from the compiled `.lean` files. If the build has not run, those queries will fail.
 
@@ -313,7 +313,7 @@ files, individual safety checks per agent, and finally composition analysis with
 closure. At the end, it cites the exact Lean theorem covering each finding, with the
 theorem statement read live from the compiled `.lean` files - not hardcoded.
 
-> ⏱️ **Time estimate:** approximately **30 minutes** for the full run. The bulk of this
+> **Time estimate:** approximately **30 minutes** for the full run. The bulk of this
 > time is the live Lean kernel queries during verification.
 
 **Expected final output:**
