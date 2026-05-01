@@ -57,7 +57,7 @@ agent systems.
 A full walkthrough of the FlowGuard PoC pipeline — capability extraction, hyperedge
 closure, Cedar comparison, and live Lean theorem citation — is available here:
 
-[![FlowGuard PoC Demo](https://img.youtube.com/vi/YOUR_VIDEO_ID/maxresdefault.jpg)](https://youtu.be/PLACEHOLDER)
+[![FlowGuard PoC Demo](https://img.youtube.com/vi/0B4X8Ynuwrg/maxresdefault.jpg)](https://youtu.be/0B4X8Ynuwrg)
 
 The video covers:
 - Cloning the repo and running `lake build` (time-lapsed)
