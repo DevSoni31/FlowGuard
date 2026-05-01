@@ -24,7 +24,6 @@ from verifier  import verify_pipeline
 console = Console()
 
 DEMO_AGENTS   = ["sample_agents/web_search_agent.py", "sample_agents/code_exec_agent.py"]
-MEDICAL_AGENTS = ["sample_agents/medical_pipeline.py"]
 
 def print_banner():
     console.print(Panel.fit(
@@ -178,7 +177,6 @@ def main():
     parser = argparse.ArgumentParser(description="FlowGuard PoC — Code → Spec → Verify")
     parser.add_argument("files", nargs="*", help="Python agent files to analyse")
     parser.add_argument("--demo",         action="store_true", help="Run canonical webAgent + execAgent demo")
-    parser.add_argument("--medical-demo", action="store_true", help="Run medical pipeline IFC demo")
     parser.add_argument("--no-dashboard", action="store_true", help="Terminal output only")
     parser.add_argument("--skip-lean",    action="store_true", help="Skip lake build (faster, for demo without Lean installed)")
     parser.add_argument("--mode", choices=["ast", "llm", "both"], default=None, help="Extraction mode: ast (offline), llm (Gemini), both (merge). If omitted, asks interactively.")
@@ -197,7 +195,6 @@ def main():
 
     files = args.files
     if args.demo:          files = DEMO_AGENTS
-    if args.medical_demo:  files = MEDICAL_AGENTS
     if not files:
         parser.print_help()
         sys.exit(1)
