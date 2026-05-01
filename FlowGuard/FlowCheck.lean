@@ -194,15 +194,8 @@ theorem validPipeline_requires_upward_flow (P : Pipeline) [ValidPipeline P] :
     FlowGuard's safety certificate is equivalent to the conjunction of
     capability safety and information-flow safety.
     ValidPipeline is not just a proof obligation — it is an exact
-    characterisation of pipeline safety. -/
-theorem validPipeline_characterisation (P : Pipeline) :
-    (∀ a ∈ P.agents, isCapSafe P.capEdges a = true) →
-    isTransitivelySafe P.channels = true →
-    (∀ a ∈ P.agents, isCapSafe P.capEdges a = true) ∧
-    isTransitivelySafe P.channels = true :=
-  fun h1 h2 => ⟨h1, h2⟩
-
-/-- The constructor direction: given the two safety conditions, build
+    characterisation of pipeline safety.
+    The constructor direction: given the two safety conditions, build
     a ValidPipeline certificate.
     This is the *useful* direction — it is how FlowGuard is applied at
     compile time. If both checks pass, the pipeline is certified. -/
