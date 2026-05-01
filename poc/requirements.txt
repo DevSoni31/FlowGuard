@@ -1,0 +1,5 @@
+flask
+rich
+google-generativeai
+python-dotenv
+requests
