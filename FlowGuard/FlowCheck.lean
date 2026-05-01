@@ -255,4 +255,112 @@ theorem both_pipelines_certified :
   ⟨ValidPipeline.capSafe, ValidPipeline.ifcSafe,
    ValidPipeline.capSafe, ValidPipeline.ifcSafe⟩
 
+/-! ## Session 6 — Hopwise Safety and the Strongest Pipeline Certificate
+
+    `ValidPipeline` currently enforces:
+      (1) capability safety — no emergent cap reaches a forbidden set
+      (2) transitive IFC  — net flow from source to sink respects the lattice
+
+    But `isTransitivelySafe` checks ONLY the two endpoints.
+    A pipeline like [Low→High, High→Low, Low→High] passes (2) while
+    containing a direct lattice violation in the middle hop.
+
+    `isHopwiseSafe` checks every individual hop — it is strictly
+    incomparable with `isTransitivelySafe`:
+      · Transitive ↛ Hopwise (proven in InfoFlow.lean)
+      · Hopwise    ↛ Transitive (proven below as a new witness)
+
+    A fully certified pipeline must satisfy BOTH checks.
+    `HopwiseValidPipeline` is the strongest certificate FlowGuard issues.
+-/
+
+/-- The two IFC checks are INDEPENDENT:
+    `isHopwiseSafe` does NOT imply `isTransitivelySafe`.
+
+    Witness: [High→High, Low→Low]
+      · Every hop is individually secure (High≤High, Low≤Low)     → hopwise = true
+      · But source=High, sink=Low → secureFlow High Low = false  → transitive = false
+
+    Combined with `transitive_safety_misses_intermediate` from InfoFlow.lean,
+    this establishes that the two checks are genuinely incomparable. -/
+theorem hopwise_safe_not_implies_transitive_safe :
+    ∃ (channels : List Channel),
+      isHopwiseSafe channels = true ∧
+      isTransitivelySafe channels = false :=
+  ⟨[ { name := "stay-high", src := DataLabel.high, dst := DataLabel.high },
+     { name := "stay-low",  src := DataLabel.low,  dst := DataLabel.low  } ],
+   by decide, by decide⟩
+
+/-- THE STRONGEST PIPELINE CERTIFICATE
+
+    A `HopwiseValidPipeline` satisfies all three FlowGuard obligations:
+      (1) Cap safety   — no emergent capability crosses into forbidden
+      (2) Hopwise IFC  — EVERY individual channel respects the security lattice
+      (3) Transitive IFC — net source-to-sink flow respects the security lattice
+
+    This is strictly stronger than `ValidPipeline`, which only enforces (1) and (3).
+    (2) catches intermediate violations that (3) cannot see.
+    (3) catches net-flow violations that (2) cannot see (witness above).
+    All three are required for a maximally certified pipeline. -/
+class HopwiseValidPipeline (P : Pipeline) : Prop extends ValidPipeline P where
+  hopwiseSafe : isHopwiseSafe P.channels = true
+
+/-- `trustedPipeline` is also hopwise valid:
+    every channel in [Low→Medium, Medium→High] is individually secure. -/
+instance trustedPipeline_hopwise_valid : HopwiseValidPipeline trustedPipeline where
+  hopwiseSafe := by decide
+
+/-- `minimalPipeline` (no channels) is vacuously hopwise valid. -/
+instance minimalPipeline_hopwise_valid : HopwiseValidPipeline minimalPipeline where
+  hopwiseSafe := by decide
+
+/-- THE FULL CERTIFICATE THEOREM
+
+    A `HopwiseValidPipeline` certificate delivers all three safety guarantees
+    as a single machine-checked conjunction.
+    This is the strongest statement FlowGuard can issue about a pipeline. -/
+theorem hopwiseValidPipeline_full_certificate
+    (P : Pipeline) [h : HopwiseValidPipeline P] :
+    (∀ a ∈ P.agents, isCapSafe P.capEdges a = true) ∧
+    isHopwiseSafe P.channels = true ∧
+    isTransitivelySafe P.channels = true :=
+  ⟨h.capSafe, h.hopwiseSafe, h.ifcSafe⟩
+
+/-- REJECTION: a pipeline with any intermediate lattice violation cannot
+    receive a `HopwiseValidPipeline` certificate — it is a compile-time error. -/
+theorem hopwiseValidPipeline_rejects_intermediate_violations (P : Pipeline)
+    (h : isHopwiseSafe P.channels = false) :
+    ¬ HopwiseValidPipeline P := by
+  intro hV
+  have hSafe := hV.hopwiseSafe
+  rw [h] at hSafe
+  exact absurd hSafe (by decide)
+
+/-- THE HIERARCHY THEOREM
+
+    `HopwiseValidPipeline P → ValidPipeline P` but NOT vice versa.
+    The forward direction is by the `extends` relationship.
+    The backward direction fails: a pipeline satisfying `ValidPipeline` may
+    contain intermediate hop violations invisible to `isTransitivelySafe`.
+
+    The witness for non-implication is the three-channel pipeline from
+    `transitive_safety_misses_intermediate` in InfoFlow.lean, wrapped as
+    a `Pipeline`. -/
+theorem validPipeline_hierarchy :
+    -- Direction 1: HopwiseValidPipeline is strictly stronger
+    HopwiseValidPipeline trustedPipeline ∧
+    -- Direction 2: ValidPipeline is strictly weaker
+    -- (there exist pipelines where ValidPipeline holds but HopwiseValidPipeline fails)
+    ∃ (P : Pipeline),
+      ValidPipeline P ∧ isHopwiseSafe P.channels = false :=
+  ⟨inferInstance,
+   { agents   := []
+     capEdges := []
+     channels := [ { name := "a", src := DataLabel.low,  dst := DataLabel.high },
+                   { name := "b", src := DataLabel.high, dst := DataLabel.low  },
+                   { name := "c", src := DataLabel.low,  dst := DataLabel.high } ] },
+   { capSafe  := by intro a ha; simp at ha
+     ifcSafe  := by decide },
+   by decide⟩
+
 end FlowGuard
